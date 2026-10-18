@@ -1,0 +1,306 @@
+/* src/estilos.css */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #f6f8fb;
+  color: #1f2937;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+}
+
+h1 { margin: 0; font-size: 18px; }
+h2 { margin: 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+
+button {
+  background: #2bb3a8;
+  color: #fff;
+  border: 0;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(0.96); }
+
+.btn-claro {
+  background: #fff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-claro:hover { background: #f8fafc; }
+
+.btn-link {
+  background: transparent;
+  color: #2563eb;
+  padding: 4px 0;
+  text-align: left;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="search"] {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 13px;
+}
+
+input:focus {
+  outline: 2px solid rgba(43, 179, 168, 0.18);
+  border-color: #2bb3a8;
+}
+
+.contenedor {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* ---------- Header y menú ---------- */
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.menu { display: flex; gap: 4px; }
+
+.tab {
+  background: transparent;
+  color: #64748b;
+  padding: 6px 12px;
+}
+
+.tab:hover { background: #eef2f6; }
+
+.tab.activa {
+  background: #e0f5f3;
+  color: #0f766e;
+}
+
+.usuario-caja { display: flex; align-items: center; gap: 8px; }
+.usuario { color: #64748b; font-size: 12px; }
+
+/* ---------- Resumen ---------- */
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #2bb3a8;
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.card span { color: #64748b; font-size: 12px; }
+.card strong { font-size: 22px; line-height: 1.2; }
+
+/* ---------- Paneles y tablas ---------- */
+
+.panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.panel-acciones { display: flex; align-items: center; gap: 8px; }
+
+.contador {
+  background: #e0f5f3;
+  color: #0f766e;
+  font-weight: 800;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+/* El scroll nunca crece más que su altura (se define en vh desde el componente) */
+.scroll {
+  overflow: auto;
+  border: 1px solid #eef2f6;
+  border-radius: 6px;
+}
+
+table { width: 100%; border-collapse: collapse; }
+
+table.lista th,
+table.lista td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #eef2f6;
+  white-space: nowrap;
+}
+
+table.lista th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  z-index: 1;
+}
+
+table.lista tbody tr:hover { background: #f1f9f8; }
+
+th.ordenable { cursor: pointer; user-select: none; }
+th.ordenable:hover { color: #0f766e; }
+
+.left { text-align: left; }
+.right { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- Menú de propiedades ---------- */
+
+.menu-props { position: relative; }
+
+.menu-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.menu-lista {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 11;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+}
+
+.menu-lista label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #334155;
+}
+
+.menu-lista input { accent-color: #2bb3a8; margin: 0; }
+
+/* ---------- Reseñas ---------- */
+
+.promedio { display: flex; align-items: center; gap: 6px; }
+.promedio strong { font-size: 20px; }
+
+.estrellas { color: #f59e0b; letter-spacing: 1px; }
+.estrellas-vacias { color: #e2e8f0; }
+
+.resena {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.resena:last-child { border-bottom: 0; }
+
+.resena-cab {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.resena-fecha { color: #94a3b8; font-size: 11px; }
+.resena p { margin: 4px 0 0; color: #475569; }
+
+/* ---------- Versiones ---------- */
+
+.etiqueta {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.etiqueta.vigente { background: #dcfce7; color: #166534; }
+.etiqueta.por-vencer { background: #fef9c3; color: #854d0e; }
+.etiqueta.vencida { background: #fee2e2; color: #991b1b; }
+
+/* ---------- Estados ---------- */
+
+.vacio { color: #94a3b8; padding: 8px 10px; margin: 0; }
+.error { color: #dc2626; }
+.estado-carga { color: #64748b; }
+.cargando-app { padding: 24px; }
+
+.aviso {
+  background: #fef9c3;
+  border: 1px solid #fde68a;
+  color: #854d0e;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+/* ---------- Login ---------- */
+
+.login {
+  width: min(320px, calc(100% - 32px));
+  margin: 15vh auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 700px) {
+  .contenedor { padding: 12px; }
+  .panel-acciones { width: 100%; }
+  .panel-acciones input { flex: 1; min-width: 0; }
+}
+
+/* ---------- Rejilla de dos columnas (Onboarding) ---------- */
+
+.rejilla {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.rejilla .panel { margin-bottom: 0; }
+
+@media (max-width: 800px) {
+  .rejilla { grid-template-columns: 1fr; }
+  .rejilla .panel { margin-bottom: 12px; }
+}
+
+/* Con 6 pestañas, que el menú pueda hacer scroll horizontal en pantallas chicas */
+.menu { overflow-x: auto; max-width: 100%; }
+.tab { white-space: nowrap; }
