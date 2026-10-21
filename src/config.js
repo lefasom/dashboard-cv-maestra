@@ -6,12 +6,24 @@ export const COLECCIONES = {
   PERFILES: "dashboard_profiles",
   USO: "dashboard_interactions",
   RESENAS: "dashboard_reviews",
+  CHATS: "chats", // chat de ayuda: chats/{userId}/messages
 };
 
 export const LIMITE_EVENTOS = 5000;
 
 // Cantidad máxima de reseñas que se traen de Firestore (las más nuevas primero)
 export const LIMITE_RESENAS = 500;
+
+// Chat de ayuda
+// - LIMITE_CHATS: cuántos chats se traen (los de actividad más reciente)
+// - ACTIVO_MS: un usuario cuenta como "en el chat ahora" si la app avisó
+//   presencia hace menos de este tiempo (la app avisa cada 60 s)
+// - LIMITE_MENSAJES_CHAT: mensajes que se cargan al abrir un chat
+// - LIMITE_TEXTO_RESPUESTA: largo máximo de tu respuesta (lo valida firestore.rules)
+export const LIMITE_CHATS = 500;
+export const ACTIVO_MS = 2 * 60 * 1000;
+export const LIMITE_MENSAJES_CHAT = 300;
+export const LIMITE_TEXTO_RESPUESTA = 2000;
 
 // Plantillas
 export const TIPO_PDF = "plantilla_descargada"; // se generó el PDF

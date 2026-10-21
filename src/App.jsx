@@ -5,11 +5,14 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./firebase";
 import Login from "./components/Login";
+import useChats from "./hooks/useChats";
 import Estadisticas from "./secciones/Estadisticas";
 import Uso from "./secciones/Uso";
 import Onboarding from "./secciones/Onboarding";
 import Perfiles from "./secciones/Perfiles";
 import Resenas from "./secciones/Resenas";
+import Chat from "./secciones/Chat";
+import Datos from "./secciones/Datos";
 import Versiones from "./secciones/Versiones";
 import "./estilos.css";
 
@@ -19,18 +22,40 @@ const SECCIONES = [
   { id: "onboarding", label: "Onboarding", componente: Onboarding },
   { id: "perfiles", label: "Perfiles", componente: Perfiles },
   { id: "resenas", label: "Reseñas", componente: Resenas },
+  { id: "chat", label: "Chat", componente: Chat },
   { id: "versiones", label: "Versiones", componente: Versiones },
+  { id: "datos", label: "Datos", componente: Datos },
 ];
 
 function Dashboard({ usuario }) {
   const [seccion, setSeccion] = useState("estadisticas");
   const Actual = SECCIONES.find((s) => s.id === seccion).componente;
 
-  return (
-    <div className="contenedor">
-      <header>
-        <h1>Dash CV Master</h1>
+  // La lista de chats vive acá para que la pestaña "Chat" muestre el
+  // globito de "sin responder" aunque estés en otra sección
+  const chats = useChats();
+  const sinResponder = chats.resumen.sinLeer;
 
+  return (
+    <div className="app">
+      <header className="encabezado">
+        <div className="encabezado-in">
+          <h1>Dash CV Master</h1>
+
+          <div className="usuario-caja">
+            <span className="usuario">{usuario.email}</span>
+            <button
+              type="button"
+              className="btn-header"
+              onClick={() => signOut(auth)}
+            >
+              Salir
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="contenedor">
         <nav className="menu">
           {SECCIONES.map((s) => (
             <button
@@ -40,19 +65,20 @@ function Dashboard({ usuario }) {
               onClick={() => setSeccion(s.id)}
             >
               {s.label}
+
+              {s.id === "chat" && sinResponder > 0 && (
+                <span className="tab-badge">
+                  {sinResponder > 99 ? "99+" : sinResponder}
+                </span>
+              )}
             </button>
           ))}
         </nav>
 
-        <div className="usuario-caja">
-          <span className="usuario">{usuario.email}</span>
-          <button type="button" className="btn-claro" onClick={() => signOut(auth)}>
-            Salir
-          </button>
-        </div>
-      </header>
-
-      <Actual />
+        <main className="contenido">
+          <Actual chats={chats} />
+        </main>
+      </div>
     </div>
   );
 }
