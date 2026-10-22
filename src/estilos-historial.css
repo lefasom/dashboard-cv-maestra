@@ -1,0 +1,176 @@
+/* src/estilos-historial.css
+ *
+ * Estilos NUEVOS (no reemplaza a estilos.css, se suma): tarjetas clicables
+ * de la pestaña Chat, punto "en la app", modal de Gestionar historial.
+ * Chat.jsx lo importa solo; usa las variables de estilos.css.
+ */
+
+/* ---------- Tarjetas de resumen que son botones ---------- */
+
+.card-clicable,
+.card-boton {
+  align-items: flex-start;
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.card-clicable:hover,
+.card-boton:hover {
+  border-color: var(--acento);
+  filter: none;
+}
+
+.card-clicable.card-activa {
+  border-color: var(--acento);
+  background: var(--acento-suave);
+}
+
+.card-sub {
+  color: var(--gris);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.card-boton strong {
+  font-size: 18px;
+  color: var(--acento);
+}
+
+/* ---------- Punto de presencia ---------- */
+
+/* En el chat: verde (.punto-en-linea de estilos.css).
+   En la app pero fuera del chat: ámbar. */
+.punto-en-linea.app {
+  background: #f5b301;
+}
+
+/* ---------- Filtro activo en la lista ---------- */
+
+.chat-filtro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--acento-suave);
+  color: var(--acento);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chat-filtro button {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--acento);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+/* ---------- Modal Gestionar historial ---------- */
+
+.modal-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.modal-caja {
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(15, 27, 76, 0.3);
+  overflow: hidden;
+}
+
+.modal-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.modal-cab h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.modal-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 18px 20px;
+  overflow-y: auto;
+}
+
+.modal-cuerpo h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+.opciones-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.modal-cuerpo .datos-item input[type="radio"],
+.modal-cuerpo .datos-item input[type="checkbox"] {
+  accent-color: var(--acento);
+}
+
+.chips-edad {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip-edad {
+  padding: 7px 14px;
+  border: 1.5px solid var(--borde);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--gris);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.chip-edad:hover {
+  border-color: var(--acento);
+  color: var(--acento);
+  filter: none;
+}
+
+.chip-edad.activa {
+  border-color: var(--acento);
+  background: var(--acento);
+  color: #fff;
+}
+
+.chip-edad:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

@@ -34,7 +34,7 @@ function Dashboard({ usuario }) {
   // La lista de chats vive acá para que la pestaña "Chat" muestre el
   // globito de "sin responder" aunque estés en otra sección
   const chats = useChats();
-  const sinResponder = chats.resumen.sinLeer;
+  const sinResponder = chats.resumen.sinResponder;
 
   return (
     <div className="app">
