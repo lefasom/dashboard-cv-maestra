@@ -9,6 +9,9 @@
 //      (se borra su reseña y la app vuelve a mostrar "Deja tu reseña").
 //      Viene marcado solo cuando se borra TODO el historial.
 //
+// Arriba hay un botón que abre OTRO modal para reiniciar los me gusta /
+// no me gusta de los diseños (ModalReinicioDisenos).
+//
 // Es irreversible: hay que escribir BORRAR para habilitar el botón.
 
 import { useEffect, useMemo, useState } from "react";
@@ -18,6 +21,7 @@ import {
   borrarHistorial,
   corteDe,
 } from "../servicios/historial";
+import ModalReinicioDisenos from "./ModalReinicioDisenos";
 
 const PALABRA = "BORRAR";
 
@@ -47,6 +51,7 @@ export default function ModalHistorial({ chats, onClose }) {
   const [borrando, setBorrando] = useState(false);
   const [borrados, setBorrados] = useState(0);
   const [resultado, setResultado] = useState(null); // { ok, texto }
+  const [verDisenos, setVerDisenos] = useState(false);
 
   const opcionEdad = OPCIONES_EDAD.find((o) => o.id === edad) ?? OPCIONES_EDAD[0];
 
@@ -110,6 +115,12 @@ export default function ModalHistorial({ chats, onClose }) {
     }
   };
 
+  // Vista de "me gusta / no me gusta de diseños" (los estados de arriba
+  // se conservan al volver)
+  if (verDisenos) {
+    return <ModalReinicioDisenos onVolver={() => setVerDisenos(false)} />;
+  }
+
   return (
     <div className="modal-fondo" onClick={cerrar} role="presentation">
       <div
@@ -133,6 +144,18 @@ export default function ModalHistorial({ chats, onClose }) {
         </div>
 
         <div className="modal-cuerpo">
+          {/* ME GUSTA / NO ME GUSTA DE DISEÑOS */}
+          <section>
+            <button
+              type="button"
+              className="btn-claro"
+              onClick={() => setVerDisenos(true)}
+              disabled={borrando}
+            >
+              👍 👎 Reiniciar me gusta / no me gusta de diseños →
+            </button>
+          </section>
+
           {/* 1) QUÉ CHATS */}
           <section>
             <h3>1. ¿Qué chats?</h3>

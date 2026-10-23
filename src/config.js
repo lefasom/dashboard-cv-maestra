@@ -6,13 +6,28 @@ export const COLECCIONES = {
   PERFILES: "dashboard_profiles",
   USO: "dashboard_interactions",
   RESENAS: "dashboard_reviews",
+  DISENOS: "dashboard_design_feedback", // "¿Te gustó el diseño?": me gusta / no me gusta
+  CONFIG: "dashboard_config", // documentos de configuración (ver abajo)
   CHATS: "chats", // chat de ayuda: chats/{userId}/messages
 };
+
+// Documentos dentro de dashboard_config:
+// - CONTADORES: { likes: { "CV-06": 4 }, dislikes: { "CV-06": 1 } }
+//   La app suma 1 acá cada vez que alguien vota. El dashboard lo lee con UNA
+//   sola lectura (Valoración y el modal de reinicio).
+// - REINICIO: marcas que leen los teléfonos para volver a preguntar
+//   "¿Te gustó el diseño?" (lo escribe el dashboard al reiniciar).
+export const DOC_CONTADORES_DISENOS = "diseno_contadores";
+export const DOC_REINICIO_DISENOS = "diseno_resets";
 
 export const LIMITE_EVENTOS = 5000;
 
 // Cantidad máxima de reseñas que se traen de Firestore (las más nuevas primero)
 export const LIMITE_RESENAS = 500;
+
+// (Ya no se usa en Valoración: ahora lee los contadores. Se deja por si otra
+// parte lo importa.)
+export const LIMITE_DISENOS = 5000;
 
 // Chat de ayuda
 // - LIMITE_CHATS: cuántos chats se traen (los de actividad más reciente)
@@ -46,6 +61,10 @@ export const USO_DESPLAZAR = "desplazamiento_cambiado";
 
 // Reseñas
 export const TIPO_RESENA = "resena_enviada";
+
+// Diseños votados ("¿Te gustó el diseño?")
+export const TIPO_DISENO_LIKE = "diseno_like";
+export const TIPO_DISENO_DISLIKE = "diseno_dislike";
 
 // Modo de diseño del PDF: "familia" o "coleccion" (diseños nuevos).
 // La app manda extra.modo; los eventos viejos se reconocen por catalogo/familia.

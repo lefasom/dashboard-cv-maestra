@@ -14,6 +14,7 @@ import Resenas from "./secciones/Resenas";
 import Chat from "./secciones/Chat";
 import Datos from "./secciones/Datos";
 import Versiones from "./secciones/Versiones";
+import Valoracion from "./secciones/Valoracion";
 import "./estilos.css";
 
 const SECCIONES = [
@@ -25,6 +26,7 @@ const SECCIONES = [
   { id: "chat", label: "Chat", componente: Chat },
   { id: "versiones", label: "Versiones", componente: Versiones },
   { id: "datos", label: "Datos", componente: Datos },
+  { id: "valoracion", label: "Valoracion", componente: Valoracion },
 ];
 
 function Dashboard({ usuario }) {

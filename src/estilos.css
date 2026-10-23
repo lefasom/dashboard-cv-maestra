@@ -804,6 +804,8 @@ input[type="search"]:focus {
 
 .chat-etiquetas {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
 }
 
@@ -928,6 +930,66 @@ input[type="search"]:focus {
 .chat-enviar:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* ============================================================
+   VALORACIÓN (me gusta / no me gusta de los diseños)
+   ============================================================ */
+
+.valoracion-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.chip-filtro {
+  padding: 7px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--superficie-alt);
+  color: var(--texto);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.chip-filtro.activo {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: #fff;
+}
+
+.valoracion-filtros input[type="search"] {
+  margin-left: auto;
+}
+
+.valor-like {
+  color: var(--verde);
+  font-weight: 800;
+}
+
+.valor-dislike {
+  color: var(--error);
+  font-weight: 800;
+}
+
+.barra-valoracion {
+  display: flex;
+  width: 140px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--borde);
+}
+
+.barra-valoracion-like {
+  background: var(--verde);
+}
+
+.barra-valoracion-dislike {
+  background: var(--error);
 }
 
 /* ============================================================

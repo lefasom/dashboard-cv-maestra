@@ -15,6 +15,9 @@
 //   - Derecha: la conversación, estilo WhatsApp. Escribís y respondés.
 //     En la cabecera, el botón "★ Reseña" abre un modal con la reseña de
 //     ese usuario (se busca por chatId en dashboard_reviews).
+//     Junto a él, "👍 Sus me gusta" y "👎 Sus no me gusta" abren un modal con
+//     los NOMBRES de los diseños de CV que ese usuario votó (se busca por
+//     userId en dashboard_design_feedback; es el mismo id que el chat).
 //
 // NOMBRE ENTRE PARÉNTESIS
 //   Se escuchan las reseñas (dashboard_reviews) y se arma un mapa
@@ -49,6 +52,7 @@ import {
 } from "firebase/firestore";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import ModalDisenos from "../components/ModalDisenos";
 import ModalHistorial from "../components/ModalHistorial";
 import ModalResena from "../components/ModalResena";
 import {
@@ -360,6 +364,9 @@ export default function Chat({ chats }) {
   const [historialAbierto, setHistorialAbierto] = useState(false);
   const [resenaAbierta, setResenaAbierta] = useState(false);
 
+  // Modal de diseños votados: null, "like" o "dislike"
+  const [disenosAbierto, setDisenosAbierto] = useState(null);
+
   // Nombre ficticio de cada chat, tomado de su reseña: { [chatId]: nombre }
   const [nombres, setNombres] = useState({});
 
@@ -427,6 +434,7 @@ export default function Chat({ chats }) {
     setConfirmandoId(null);
     setErrorMensaje(null);
     setResenaAbierta(false);
+    setDisenosAbierto(null);
   }, [seleccionId]);
 
   // Conversación del chat abierto
@@ -862,6 +870,20 @@ export default function Chat({ chats }) {
                   >
                     ★ Reseña
                   </button>
+                  <button
+                    type="button"
+                    className="btn-resena"
+                    onClick={() => setDisenosAbierto("like")}
+                  >
+                    👍 Sus me gusta
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-resena"
+                    onClick={() => setDisenosAbierto("dislike")}
+                  >
+                    👎 Sus no me gusta
+                  </button>
                 </div>
               </div>
 
@@ -1077,6 +1099,15 @@ export default function Chat({ chats }) {
           chatId={seleccionado.id}
           numero={seleccionado.numero}
           onClose={() => setResenaAbierta(false)}
+        />
+      )}
+
+      {disenosAbierto && seleccionado && (
+        <ModalDisenos
+          chatId={seleccionado.id}
+          numero={seleccionado.numero}
+          valorInicial={disenosAbierto}
+          onClose={() => setDisenosAbierto(null)}
         />
       )}
     </>
