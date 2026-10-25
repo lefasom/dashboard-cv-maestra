@@ -1,20 +1,22 @@
 // src/App.jsx
 // Vite + React — Dashboard CV Master
 
-import { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "./firebase";
+import { useEffect, useState } from "react";
+
 import Login from "./components/Login";
+import { auth } from "./firebase";
 import useChats from "./hooks/useChats";
+import Chat from "./secciones/Chat";
+import Datos from "./secciones/Datos";
+import Distribucion from "./secciones/Distribucion";
 import Estadisticas from "./secciones/Estadisticas";
-import Uso from "./secciones/Uso";
 import Onboarding from "./secciones/Onboarding";
 import Perfiles from "./secciones/Perfiles";
 import Resenas from "./secciones/Resenas";
-import Chat from "./secciones/Chat";
-import Datos from "./secciones/Datos";
-import Versiones from "./secciones/Versiones";
+import Uso from "./secciones/Uso";
 import Valoracion from "./secciones/Valoracion";
+import Versiones from "./secciones/Versiones";
 import "./estilos.css";
 
 const SECCIONES = [
@@ -25,6 +27,7 @@ const SECCIONES = [
   { id: "resenas", label: "Reseñas", componente: Resenas },
   { id: "chat", label: "Chat", componente: Chat },
   { id: "versiones", label: "Versiones", componente: Versiones },
+  { id: "distribucion", label: "Distribución", componente: Distribucion },
   { id: "datos", label: "Datos", componente: Datos },
   { id: "valoracion", label: "Valoracion", componente: Valoracion },
 ];
