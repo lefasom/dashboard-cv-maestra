@@ -13,13 +13,14 @@ const texto = (n) => (n ? n.toFixed(1) : "—");
 // ESTADÍSTICAS
 // ============================================================
 
+// Plantillas de familia (la colección tiene su propia tabla).
+// "Descargas" = PDF generados de esa plantilla. Antes había dos columnas
+// (PDF familia y Total PDF) con el mismo valor, porque la colección ya no
+// está en esta tabla.
 export const COLUMNAS_PLANTILLAS = [
   { key: "nombre", label: "Nombre", align: "left", inicial: true, valor: (f) => f.nombre },
   { key: "familia", label: "Familia", align: "left", inicial: true, valor: (f) => f.familiaLabel },
-  { key: "coleccion", label: "Colección", align: "right", inicial: true, valor: (f) => f.coleccion },
-  { key: "pdfFamilia", label: "PDF familia", align: "right", inicial: true, valor: (f) => f.pdfFamilia },
-  { key: "pdfColeccion", label: "PDF colección", align: "right", inicial: true, valor: (f) => f.pdfColeccion },
-  { key: "total", label: "Total PDF", align: "right", inicial: true, valor: (f) => f.pdfFamilia + f.pdfColeccion },
+  { key: "descargas", label: "Descargas", align: "right", inicial: true, valor: (f) => f.pdfFamilia + f.pdfColeccion },
   { key: "ultima", label: "Última descarga", align: "left", inicial: false, valor: (f) => f.ultima ?? 0, render: (f) => fecha(f.ultima) },
   { key: "android", label: "Android", align: "right", inicial: false, valor: (f) => f.android },
   { key: "ios", label: "iOS", align: "right", inicial: false, valor: (f) => f.ios },
@@ -40,17 +41,24 @@ export const COLUMNAS_PLANTILLAS = [
     valor: (f) => promedio(f.selSuma, f.selN),
     render: (f) => texto(promedio(f.selSuma, f.selN)),
   },
+  { key: "conExp", label: "Con exp. mejorada", align: "right", inicial: false, valor: (f) => f.conExp },
+  { key: "sinExp", label: "Sin exp. mejorada", align: "right", inicial: false, valor: (f) => f.sinExp },
+  { key: "sinDato", label: "Sin dato", align: "right", inicial: false, valor: (f) => f.sinDato },
 ];
 
 export const COLUMNAS_FAMILIAS = [
   { key: "nombre", label: "Familia", align: "left", inicial: true, valor: (f) => f.nombre },
-  { key: "plantillas", label: "Plantillas", align: "right", inicial: true, valor: (f) => f.plantillas },
-  { key: "coleccion", label: "Colección", align: "right", inicial: true, valor: (f) => f.coleccion },
   { key: "pdfFamilia", label: "PDF familia", align: "right", inicial: true, valor: (f) => f.pdfFamilia },
-  { key: "pdfColeccion", label: "PDF colección", align: "right", inicial: true, valor: (f) => f.pdfColeccion },
   { key: "pdfAts", label: "PDF ATS", align: "right", inicial: true, valor: (f) => f.pdfAts },
-  { key: "total", label: "Total PDF", align: "right", inicial: false, valor: (f) => f.pdfFamilia + f.pdfColeccion },
+  { key: "total", label: "Total PDF", align: "right", inicial: false, valor: (f) => f.pdfFamilia + f.pdfAts },
   { key: "ultima", label: "Última descarga", align: "left", inicial: false, valor: (f) => f.ultima ?? 0, render: (f) => fecha(f.ultima) },
+];
+
+// Solo los diseños de la colección
+export const COLUMNAS_COLECCION = [
+  { key: "nombre", label: "Plantilla", align: "left", inicial: true, valor: (f) => f.nombre },
+  { key: "coleccion", label: "Nuevos diseños", align: "right", inicial: true, valor: (f) => f.coleccion },
+  { key: "pdfColeccion", label: "PDF", align: "right", inicial: true, valor: (f) => f.pdfColeccion },
 ];
 
 // ============================================================
@@ -73,8 +81,7 @@ const columnasConteo = (labelNombre) => [
 export const COLUMNAS_AREAS = columnasConteo("Área");
 export const COLUMNAS_ETAPAS = columnasConteo("Momento laboral");
 export const COLUMNAS_EXTRAS = columnasConteo("Extra");
-export const COLUMNAS_CAMBIOS = columnasConteo("Cambio de área");
-export const COLUMNAS_ACCIONES = columnasConteo("Acción");
+export const COLUMNAS_ACCIONES = columnasConteo("Acción"); // la usa Uso
 
 // ============================================================
 // PERFILES

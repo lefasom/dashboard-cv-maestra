@@ -20,6 +20,8 @@ export const COLECCIONES = {
 export const DOC_CONTADORES_DISENOS = "diseno_contadores";
 export const DOC_REINICIO_DISENOS = "diseno_resets";
 
+// OJO: todo se calcula sobre los N eventos más recientes. Si hay más, los
+// contadores pueden BAJAR en vez de crecer (EstadoCarga muestra un aviso).
 export const LIMITE_EVENTOS = 5000;
 
 // Cantidad máxima de reseñas que se traen de Firestore (las más nuevas primero)
@@ -42,12 +44,12 @@ export const LIMITE_TEXTO_RESPUESTA = 2000;
 
 // Plantillas
 export const TIPO_PDF = "plantilla_descargada"; // se generó el PDF
-export const TIPO_COLECCION = "plantilla_biblioteca"; // agregada a "Mi colección"
+export const TIPO_COLECCION = "plantilla_biblioteca"; // se bajó un diseño de la biblioteca ("Nuevos diseños")
 
 // Onboarding
 export const ONB_COMPLETADO = "onboarding_completado";
-export const ONB_EDITADO = "onboarding_editado";
-export const ONB_DESACTIVADO = "onboarding_desactivado";
+export const ONB_ADMIN = "onboarding_admin_uso"; // uso del Admin y de cada botón Editar
+// (onboarding_editado / onboarding_desactivado ya no se muestran)
 
 // Perfiles
 export const PERFIL_SELECCIONADO = "perfil_prueba_seleccionado";

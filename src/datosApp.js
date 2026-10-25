@@ -7,9 +7,8 @@ import {
   etiquetaFamilia,
 } from "./catalogo";
 import {
+  ONB_ADMIN,
   ONB_COMPLETADO,
-  ONB_DESACTIVADO,
-  ONB_EDITADO,
   PERFIL_ACTIVADO,
   PERFIL_REAL,
   PERFIL_SELECCIONADO,
@@ -39,57 +38,61 @@ const contar = (valores) => {
   return Array.from(mapa.entries());
 };
 
+// "a,b,c" -> ["a","b","c"] (sin vacíos). Si no hay dato devuelve [].
+const partir = (valor) =>
+  String(valor ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+
 // ============================================================
 // ONBOARDING
+//   Las tablas salen de onboarding_completado (lo elegido al activar).
+//   Las tarjetas salen de onboarding_admin_uso (cuántas veces se usó
+//   el Admin y cada botón Editar).
 // ============================================================
 
 export const agruparOnboarding = (eventos) => {
   const completados = eventos.filter((e) => e.tipo === ONB_COMPLETADO);
-  const editados = eventos.filter((e) => e.tipo === ONB_EDITADO);
-  const desactivados = eventos.filter((e) => e.tipo === ONB_DESACTIVADO);
+  const admin = eventos.filter((e) => e.tipo === ONB_ADMIN);
 
   const areas = filasConteo(
-    contar(completados.map((e) => etiquetaFamilia(e.extra?.sector)))
+    contar(
+      completados.flatMap((e) =>
+        partir(e.extra?.sector).map((v) => etiquetaFamilia(v))
+      )
+    )
   );
 
   const etapas = filasConteo(
-    contar(completados.map((e) => etiqueta(ETAPAS, e.extra?.careerStage)))
+    contar(
+      completados.flatMap((e) =>
+        partir(e.extra?.careerStage).map((v) => etiqueta(ETAPAS, v))
+      )
+    )
   );
 
   const extras = filasConteo(
     contar(
       completados.flatMap((e) =>
-        String(e.extra?.extras ?? "")
-          .split(",")
-          .filter(Boolean)
-          .map((valor) => etiqueta(EXTRAS, valor))
+        partir(e.extra?.extras).map((v) => etiqueta(EXTRAS, v))
       )
     )
   );
 
-  const cambios = filasConteo(
-    contar(
-      [...completados, ...editados]
-        .filter((e) => e.extra?.cambioArea === true)
-        .map(
-          (e) =>
-            `${etiquetaFamilia(e.extra?.sectorAnterior)} → ${etiquetaFamilia(
-              e.extra?.sector
-            )}`
-        )
-    )
-  );
+  // La acción viaja en extra.accion y también en nombre
+  const cuenta = (accion) =>
+    admin.filter((e) => (e.extra?.accion ?? e.nombre) === accion).length;
 
   return {
     areas,
     etapas,
     extras,
-    cambios,
-    resumen: {
-      completados: completados.length,
-      editados: editados.length,
-      desactivados: desactivados.length,
-      cambios: cambios.reduce((s, f) => s + f.cantidad, 0),
+    admin: {
+      abrir: cuenta("abrir_admin"),
+      area: cuenta("editar_area"),
+      momento: cuenta("editar_momento"),
+      extras: cuenta("editar_extras"),
     },
   };
 };

@@ -1,7 +1,12 @@
 // src/catalogo.js
-// Plantillas existentes por familia (así aparecen en la tabla aunque
-// todavía no tengan actividad) y etiquetas legibles para los códigos.
+// Plantillas existentes (con el mismo id que la app) para que aparezcan en
+// las tablas aunque todavía no tengan actividad, y etiquetas legibles.
 // Si agregás plantillas en la app, agregalas acá también.
+//
+// Family: ids 1 a 66, de a 6 por familia (la ATS primero, id 1, 7, 13...).
+// Library (colección): ids 100, 102 a 110 y 112.
+
+export const SIN_FAMILIA = "sin_familia";
 
 export const FAMILIAS = {
   customer_service: "Atención al cliente / Ventas",
@@ -15,9 +20,11 @@ export const FAMILIAS = {
   influencers: "Influencer / Publicidad",
   hospitality_gastronomy: "Hotelería / Gastronomía",
   other: "Otros / Híbridos",
-  new_design: "Diseños nuevos",
+  new_design: "Colección",
+  sin_familia: "Sin familia",
 };
 
+// El orden de los nombres es el orden de los ids (ATS, id+1, id+2...)
 const POR_FAMILIA = {
   customer_service: ["ATS", "CV-09", "CV-10", "CV-07", "CV-06", "CV-13"],
   administration: ["ATS", "CV-03", "CV-04", "CV-05", "CV-08", "CV-12"],
@@ -30,15 +37,44 @@ const POR_FAMILIA = {
   influencers: ["ATS", "CV-43", "CV-35", "CV-36", "CV-37", "CV-38"],
   hospitality_gastronomy: ["ATS", "CV-46", "CV-47", "CV-48", "CV-49", "CV-50"],
   other: ["ATS", "CV-51", "CV-52", "CV-53", "CV-54", "CV-55"],
-  new_design: [
-    "CV-57", "CV-69", "CV-60", "CV-61", "CV-58", "CV-62",
-    "CV-63", "CV-64", "CV-67", "CV-65", "CV-68",
-  ],
 };
 
-export const CATALOGO = Object.entries(POR_FAMILIA).flatMap(
-  ([familia, nombres]) => nombres.map((nombre) => ({ nombre, familia }))
-);
+// Colección: [id, nombre]
+const COLECCION = [
+  [100, "CV-57"],
+  [102, "CV-69"],
+  [103, "CV-60"],
+  [104, "CV-61"],
+  [105, "CV-58"],
+  [106, "CV-62"],
+  [107, "CV-63"],
+  [108, "CV-64"],
+  [109, "CV-67"],
+  [110, "CV-65"],
+  [112, "CV-68"],
+];
+
+export const CATALOGO = [
+  ...Object.entries(POR_FAMILIA).flatMap(([familia, nombres], i) =>
+    nombres.map((nombre, j) => ({
+      id: 1 + i * 6 + j,
+      nombre,
+      familia,
+      catalogo: "family",
+      esAts: j === 0,
+    }))
+  ),
+  ...COLECCION.map(([id, nombre]) => ({
+    id,
+    nombre,
+    familia: "new_design",
+    catalogo: "library",
+    esAts: false,
+  })),
+];
+
+// Cantidad de diseños de la colección (tarjeta "Colección"): sale del catálogo
+export const TOTAL_COLECCION = COLECCION.length;
 
 export const ETAPAS = {
   experienced: "Tengo experiencia laboral",

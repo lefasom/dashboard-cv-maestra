@@ -7,7 +7,6 @@ import TablaDatos from "../components/TablaDatos";
 import { agruparOnboarding } from "../datosApp";
 import {
   COLUMNAS_AREAS,
-  COLUMNAS_CAMBIOS,
   COLUMNAS_ETAPAS,
   COLUMNAS_EXTRAS,
 } from "../columnas";
@@ -30,13 +29,14 @@ export default function Onboarding() {
 
       <Resumen
         tarjetas={[
-          { label: "Completados", valor: datos.resumen.completados },
-          { label: "Editados", valor: datos.resumen.editados },
-          { label: "Desactivados", valor: datos.resumen.desactivados },
-          { label: "Cambios de área", valor: datos.resumen.cambios },
+          { label: "Uso del Admin", valor: datos.admin.abrir },
+          { label: "Cambio de área", valor: datos.admin.area },
+          { label: "Cambio de momento laboral", valor: datos.admin.momento },
+          { label: "Cambio de extras", valor: datos.admin.extras },
         ]}
       />
 
+      {/* Las tablas muestran lo elegido al activar la experiencia mejorada */}
       <div className="rejilla">
         <TablaDatos
           titulo="Áreas elegidas"
@@ -60,27 +60,19 @@ export default function Onboarding() {
           filtro={false}
         />
 
-        <TablaDatos
-          titulo="Momento laboral"
-          filas={datos.etapas}
-          columnas={COLUMNAS_ETAPAS}
-          claveStorage="dash-cv-master:cols-etapas"
-          altura="26vh"
-          ordenInicial={ORDEN}
-          menu={false}
-          filtro={false}
-        />
-
-        <TablaDatos
-          titulo="Cambios de área"
-          filas={datos.cambios}
-          columnas={COLUMNAS_CAMBIOS}
-          claveStorage="dash-cv-master:cols-cambios"
-          altura="26vh"
-          ordenInicial={ORDEN}
-          menu={false}
-          filtro={false}
-        />
+        {/* La tercera ocupa todo el ancho para no dejar un hueco */}
+        <div className="ancho-completo">
+          <TablaDatos
+            titulo="Momento laboral"
+            filas={datos.etapas}
+            columnas={COLUMNAS_ETAPAS}
+            claveStorage="dash-cv-master:cols-etapas"
+            altura="26vh"
+            ordenInicial={ORDEN}
+            menu={false}
+            filtro={false}
+          />
+        </div>
       </div>
     </>
   );

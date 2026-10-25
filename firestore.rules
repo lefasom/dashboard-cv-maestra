@@ -1,0 +1,365 @@
+rules_version = '2';
+
+// IMPORTANTE: si ya tenés un firestore.rules con otras colecciones,
+// NO lo reemplaces entero. Copiá las funciones `eventoValido`, `resenaValida`
+// `resenaEditadaValida`, `disenoFeedbackValido`, `mapaUno` y `cambioUnDiseno`,
+// los 6 bloques `match /dashboard_.../{id}`, los 3 bloques
+// `match /dashboard_config/...` (diseno_resets, diseno_contadores y
+// distribucion) y el bloque `match /chats/{userId}` dentro de tu archivo
+// actual.
+//
+// CAMBIO DE ESTA VERSIÓN: en `match /dashboard_onboarding/{id}` se agregó
+// el tipo 'onboarding_admin_uso'. Hay que PUBLICAR las reglas en Firebase.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Un evento válido tiene siempre la misma forma:
+    // { tipo, nombre, plataforma, createdAt, plantillaId?, extra? }
+    function eventoValido(tipos) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['tipo', 'nombre', 'plataforma', 'createdAt', 'plantillaId', 'extra'])
+        && d.keys().hasAll(['tipo', 'nombre', 'plataforma', 'createdAt'])
+        && d.tipo in tipos
+        && d.nombre is string
+        && d.nombre.size() <= 120
+        && d.plataforma is string
+        && d.createdAt == request.time
+        && (!('plantillaId' in d) || d.plantillaId is string)
+        && (!('extra' in d) || d.extra is map);
+    }
+
+    // Reseña NUEVA:
+    // { tipo, nombre, estrellas, texto, plataforma, createdAt, idioma?, chatId? }
+    //   chatId = id anónimo del usuario (para poder borrar su reseña al
+    //   limpiar el historial desde el dashboard)
+    function resenaValida() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['tipo', 'nombre', 'estrellas', 'texto', 'plataforma', 'createdAt', 'idioma', 'chatId'])
+        && d.keys().hasAll(['tipo', 'nombre', 'estrellas', 'texto', 'plataforma', 'createdAt'])
+        && d.tipo == 'resena_enviada'
+        && d.nombre is string
+        && d.nombre.size() >= 1
+        && d.nombre.size() <= 40
+        && d.estrellas is int
+        && d.estrellas >= 1
+        && d.estrellas <= 5
+        && d.texto is string
+        && d.texto.size() <= 300
+        && d.plataforma is string
+        && d.plataforma.size() <= 20
+        && d.createdAt == request.time
+        && (!('idioma' in d) || (d.idioma is string && d.idioma.size() <= 5))
+        && (!('chatId' in d) || (d.chatId is string && d.chatId.size() <= 60));
+    }
+
+    // Reseña EDITADA desde la app ("Cambiar reseña"): se puede cambiar
+    // nombre, estrellas, texto e idioma. La fecha original (createdAt) y el
+    // chatId no se pueden tocar.
+    function resenaEditadaValida() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['tipo', 'nombre', 'estrellas', 'texto', 'plataforma', 'createdAt', 'idioma', 'chatId', 'editadaEn'])
+        && d.keys().hasAll(['tipo', 'nombre', 'estrellas', 'texto', 'plataforma', 'createdAt'])
+        && d.tipo == 'resena_enviada'
+        && d.nombre is string
+        && d.nombre.size() >= 1
+        && d.nombre.size() <= 40
+        && d.estrellas is int
+        && d.estrellas >= 1
+        && d.estrellas <= 5
+        && d.texto is string
+        && d.texto.size() <= 300
+        && d.plataforma is string
+        && d.plataforma.size() <= 20
+        && d.createdAt == resource.data.createdAt
+        && d.get('chatId', null) == resource.data.get('chatId', null)
+        && (!('idioma' in d) || (d.idioma is string && d.idioma.size() <= 5))
+        && (!('editadaEn' in d) || d.editadaEn == request.time);
+    }
+
+    // "¿Te gustó el diseño?": like / dislike de un usuario sobre una plantilla.
+    // { tipo, userId, nombre, plataforma, createdAt, idioma? }
+    //   nombre = nombre del diseño en el catálogo (ej. "CV-06"), no el id.
+    // El id del documento es `${userId}_${nombre}`: una respuesta por
+    // usuario y diseño (no se puede crear dos veces ni editar).
+    function disenoFeedbackValido(id) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['tipo', 'nombre', 'plataforma', 'createdAt', 'userId', 'idioma'])
+        && d.keys().hasAll(['tipo', 'nombre', 'plataforma', 'createdAt', 'userId'])
+        && d.tipo in ['diseno_like', 'diseno_dislike']
+        && d.nombre is string
+        && d.nombre.size() >= 1
+        && d.nombre.size() <= 100
+        && d.plataforma is string
+        && d.plataforma.size() <= 20
+        && d.userId is string
+        && d.userId.size() >= 10
+        && d.userId.size() <= 60
+        && d.createdAt == request.time
+        && (!('idioma' in d) || (d.idioma is string && d.idioma.size() <= 5))
+        && id == d.userId + '_' + d.nombre;
+    }
+
+    // Mapa con exactamente un diseño y el valor 1: {"CV-06": 1}
+    // (lo usa el contador de likes / dislikes, ver más abajo)
+    function mapaUno(m) {
+      return m.size() == 1 && m.values()[0] == 1;
+    }
+
+    // En una actualización desde la app, el mapa cambió en UN solo diseño
+    function cambioUnDiseno(nuevo, viejo) {
+      return nuevo.diff(viejo).affectedKeys().size() == 1;
+    }
+
+    // Plantillas: descargas de PDF y agregadas a la colección
+    match /dashboard_events/{id} {
+      allow create: if eventoValido(['plantilla_descargada', 'plantilla_biblioteca']);
+      allow read: if request.auth != null;
+      allow update: if false;
+      allow delete: if request.auth != null;
+    }
+
+    // Onboarding (experiencia mejorada)
+    //   onboarding_completado  → se activó la experiencia mejorada
+    //   onboarding_admin_uso   → uso del Admin y de cada botón Editar
+    //   (onboarding_editado / onboarding_desactivado se mantienen
+    //    permitidos por compatibilidad, hoy la app no los envía)
+    match /dashboard_onboarding/{id} {
+      allow create: if eventoValido([
+        'onboarding_completado',
+        'onboarding_editado',
+        'onboarding_desactivado',
+        'onboarding_admin_uso'
+      ]);
+      allow read: if request.auth != null;
+      allow update: if false;
+      allow delete: if request.auth != null;
+    }
+
+    // Perfiles
+    match /dashboard_profiles/{id} {
+      allow create: if eventoValido([
+        'perfil_prueba_seleccionado',
+        'perfil_prueba_activado',
+        'perfil_real_creado'
+      ]);
+      allow read: if request.auth != null;
+      allow update: if false;
+      allow delete: if request.auth != null;
+    }
+
+    // Uso / interacciones
+    match /dashboard_interactions/{id} {
+      allow create: if eventoValido([
+        'paginacion_cambiada',
+        'editor_abierto',
+        'desplazamiento_cambiado'
+      ]);
+      allow read: if request.auth != null;
+      allow update: if false;
+      allow delete: if request.auth != null;
+    }
+
+    // Reseñas (las envía y edita la app, las lee y borra el dashboard)
+    match /dashboard_reviews/{id} {
+      allow create: if resenaValida();
+      allow read: if request.auth != null;
+      allow update: if resenaEditadaValida();   // "Cambiar reseña" en la app
+      allow delete: if request.auth != null;     // Historial / Restablecer datos
+    }
+
+    // Likes / dislikes de diseños (los envía la app, los lee y borra el dashboard)
+    match /dashboard_design_feedback/{id} {
+      allow create: if disenoFeedbackValido(id);
+      allow read: if request.auth != null;
+      allow update: if false;
+      allow delete: if request.auth != null;
+    }
+
+    // ============================================================
+    // CONFIGURACIÓN (dashboard_config)
+    //
+    //   diseno_resets      marcas de "reiniciar me gusta / no me gusta".
+    //                      Las escribe el dashboard (con sesión) y las leen
+    //                      los teléfonos (sin sesión) por id, para borrar
+    //                      sus respuestas guardadas y volver a preguntar.
+    //
+    //   diseno_contadores  { likes: { "CV-06": 4 }, dislikes: { "CV-06": 1 } }
+    //                      La app solo SUMA votos; el dashboard lo lee (una
+    //                      sola lectura) y lo reinicia.
+    //
+    //   distribucion       cómo se comparte la app (Ajustes > Compartir
+    //                      aplicación). La app solo LEE; el dashboard escribe.
+    //                      { modoDistribucion: "apk" | "play",
+    //                        urlApk, urlPlay,
+    //                        mensajeCompartir: { es, en, pt } }
+    //                      Más adelante comparte documento con el control de
+    //                      versiones (versionCodeActual, etc.).
+    // ============================================================
+
+    match /dashboard_config/diseno_resets {
+      allow get: if true;
+
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['resetTodoEn', 'resets', 'actualizadoEn'])
+        && request.resource.data.get('resetTodoEn', 0) is number
+        && request.resource.data.get('resets', {}) is map;
+
+      allow delete: if request.auth != null;
+    }
+
+    match /dashboard_config/diseno_contadores {
+      // Solo el dashboard lee
+      allow get: if request.auth != null;
+
+      // Dashboard (con sesión): cualquier cambio (reiniciar, recalcular)
+      allow create, update, delete: if request.auth != null;
+
+      // App (sin sesión): solo sumar votos
+      // - primer voto: se crea el documento con un solo diseño en 1
+      allow create: if
+        (request.resource.data.keys().hasOnly(['likes'])
+          && mapaUno(request.resource.data.likes))
+        || (request.resource.data.keys().hasOnly(['dislikes'])
+          && mapaUno(request.resource.data.dislikes));
+
+      // - siguientes votos: cambia un solo diseño, de un solo mapa
+      allow update: if request.resource.data.keys().hasOnly(['likes', 'dislikes'])
+        && (
+          (cambioUnDiseno(request.resource.data.get('likes', {}), resource.data.get('likes', {}))
+            && request.resource.data.get('dislikes', {}) == resource.data.get('dislikes', {}))
+          ||
+          (cambioUnDiseno(request.resource.data.get('dislikes', {}), resource.data.get('dislikes', {}))
+            && request.resource.data.get('likes', {}) == resource.data.get('likes', {}))
+        );
+    }
+
+    // Distribución de la app: la app (sin sesión) lee por id,
+    // solo el dashboard (con sesión) escribe.
+    match /dashboard_config/distribucion {
+      allow get: if true;
+      allow create, update, delete: if request.auth != null;
+    }
+
+    // ============================================================
+    // CHAT DE AYUDA
+    //
+    //   chats/{userId}                  ficha del usuario (presencia)
+    //   chats/{userId}/messages/{id}    mensajes de ambos lados
+    //   chats/{userId}/limites/{dia}    contador de mensajes por día
+    //
+    // Campos de la ficha:
+    //   Los escribe la APP:      creadoEn, ultimaVez (en el chat), enChat,
+    //                            ultimaVezApp, enApp (dentro de la app),
+    //                            plataforma, idioma, ultimoMensaje,
+    //                            ultimoMensajeEn
+    //   Los escribe el DASHBOARD: soporteLeyoHasta, ultimaRespuestaEn,
+    //                            resetEn (la app los puede dejar igual,
+    //                            nunca cambiarlos)
+    // ============================================================
+
+    match /chats/{userId} {
+
+      function camposApp() {
+        return ['creadoEn', 'ultimaVez', 'ultimaVezApp', 'enChat', 'enApp',
+                'plataforma', 'idioma', 'ultimoMensaje', 'ultimoMensajeEn'];
+      }
+
+      function camposSoporte() {
+        return ['soporteLeyoHasta', 'ultimaRespuestaEn', 'resetEn'];
+      }
+
+      // La app no puede tocar los campos del soporte
+      function soporteIntacto() {
+        return request.resource.data.get('soporteLeyoHasta', null) == resource.data.get('soporteLeyoHasta', null)
+          && request.resource.data.get('ultimaRespuestaEn', null) == resource.data.get('ultimaRespuestaEn', null)
+          && request.resource.data.get('resetEn', null) == resource.data.get('resetEn', null);
+      }
+
+      // La app lee solo SU ficha (por id). Listar todos: solo el dashboard.
+      allow get: if true;
+      allow list: if request.auth != null;
+
+      // La app crea su ficha
+      allow create: if request.resource.data.keys().hasOnly(camposApp())
+        && userId.size() >= 10 && userId.size() <= 60;
+
+      // La app actualiza su ficha (sin tocar los campos del soporte)
+      allow update: if request.resource.data.keys().hasOnly(camposApp().concat(camposSoporte()))
+        && soporteIntacto();
+
+      // Dashboard (con sesión): cualquier campo
+      allow create, update: if request.auth != null;
+
+      // Solo el dashboard puede borrar
+      allow delete: if request.auth != null;
+
+      // Mensajes
+      match /messages/{mensajeId} {
+        allow read: if true;
+
+        // Del usuario (app): máx. 500 caracteres y máx. 10 por día
+        allow create: if request.resource.data.keys().hasOnly(
+              ['de', 'texto', 'enviadoEn', 'dia', 'createdAt'])
+          && request.resource.data.keys().hasAll(
+              ['de', 'texto', 'enviadoEn', 'dia', 'createdAt'])
+          && request.resource.data.de == 'usuario'
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() <= 500
+          && request.resource.data.enviadoEn is number
+          && request.resource.data.dia is string
+          && request.resource.data.dia.size() == 10
+          && request.resource.data.createdAt == request.time
+          && getAfter(/databases/$(database)/documents/chats/$(userId)/limites/$(request.resource.data.dia)).data.count <= 10;
+
+        // Tuyos (dashboard con sesión): sin límite diario
+        allow create: if request.auth != null
+          && request.resource.data.keys().hasOnly(
+              ['de', 'texto', 'enviadoEn', 'createdAt'])
+          && request.resource.data.keys().hasAll(
+              ['de', 'texto', 'enviadoEn'])
+          && request.resource.data.de == 'soporte'
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() <= 2000
+          && request.resource.data.enviadoEn is number;
+
+        // Editar tus propios mensajes (dashboard con sesión):
+        // solo los de 'soporte'. Se puede cambiar el texto y se marca
+        // con editadoEn. El autor y las fechas originales no se tocan.
+        allow update: if request.auth != null
+          && resource.data.de == 'soporte'
+          && request.resource.data.de == 'soporte'
+          && request.resource.data.keys().hasOnly(
+              ['de', 'texto', 'enviadoEn', 'createdAt', 'editadoEn'])
+          && request.resource.data.keys().hasAll(
+              ['de', 'texto', 'enviadoEn', 'editadoEn'])
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() <= 2000
+          && request.resource.data.enviadoEn == resource.data.enviadoEn
+          && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+          && request.resource.data.editadoEn is number;
+
+        allow delete: if request.auth != null;
+      }
+
+      // Contador diario: solo sube de a 1 y hasta 10
+      match /limites/{dia} {
+        allow read: if request.auth != null;
+
+        allow create: if request.resource.data.keys().hasOnly(['count', 'dia'])
+          && request.resource.data.count == 1
+          && request.resource.data.dia == dia;
+
+        allow update: if request.resource.data.keys().hasOnly(['count', 'dia'])
+          && request.resource.data.count == resource.data.count + 1
+          && request.resource.data.count <= 10
+          && request.resource.data.dia == dia;
+
+        allow delete: if request.auth != null;
+      }
+    }
+  }
+}

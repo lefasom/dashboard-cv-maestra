@@ -1,11 +1,20 @@
 // src/firebase.js  (Vite + React, web)
 //
-// Instalar:  npm install firebase
+// Instalar:  npm install firebase   (versión 10 o superior)
+//
+// CAMBIO PARA AHORRAR LECTURAS: Firestore ahora usa caché local persistente
+// (IndexedDB). Si recargás la página, los documentos que ya se bajaron salen
+// del navegador y solo se pagan los que cambiaron (mientras el cierre dure
+// menos de ~30 minutos). Funciona con varias pestañas del navegador abiertas.
 
 import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC5kSucOpOEpc-l07bUV8rH3I0gKaq4WAQ",
@@ -18,7 +27,13 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
+});
+
 export const auth = getAuth(app);
 
 // Analytics solo si el navegador lo soporta (no rompe si no)
