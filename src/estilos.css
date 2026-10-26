@@ -8,6 +8,9 @@
  *   - tipografía de 16 px en los campos (evita el zoom automático de iOS)
  *   - alturas con dvh (no se cortan con la barra del navegador del celular)
  *
+ * NUEVO: bloque "Versiones: formulario" (al final de la sección de
+ * etiquetas) para el formulario de Nueva versión.
+ *
  * Si el azul no es EXACTAMENTE el de la app, cambiá solo --acento
  * (poné el mismo valor que CONFIG_STYLES.defaultColor).
  */
@@ -597,6 +600,67 @@ input[type="search"]:focus {
 .etiqueta.vencida {
   background: rgba(220, 38, 38, 0.14);
   color: var(--error);
+}
+
+/* ============================================================
+   VERSIONES: FORMULARIO (Nueva versión)
+   ============================================================ */
+
+.form-version {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 12px;
+  align-items: end;
+  padding: 16px 18px 12px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.campo span {
+  color: var(--gris);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.campo input {
+  padding: 10px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--superficie-alt);
+  outline: none;
+}
+
+.campo input:focus {
+  border-color: var(--acento);
+}
+
+.form-version button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.form-nota {
+  margin: 0;
+  padding: 0 18px 16px;
+  color: var(--gris);
+  font-size: 12px;
+}
+
+.form-msg {
+  margin: 0;
+  padding: 0 18px 16px;
+  font-weight: 700;
+}
+
+.form-msg.ok {
+  color: var(--verde);
 }
 
 /* ============================================================
@@ -1251,6 +1315,16 @@ input[type="search"]:focus {
 
   .lista tbody tr:hover td:first-child {
     background: var(--superficie-alt);
+  }
+
+  /* Versiones: formulario */
+  .form-version {
+    padding: 14px 14px 10px;
+  }
+
+  .form-nota,
+  .form-msg {
+    padding: 0 14px 14px;
   }
 
   /* Valoración */

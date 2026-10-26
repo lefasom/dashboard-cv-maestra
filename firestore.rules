@@ -5,13 +5,20 @@ rules_version = '2';
 // `resenaEditadaValida`, `disenoFeedbackValido`, `mapaUno`, `cambioUnDiseno`
 // y las del bloque USO AGREGADO (`usoEstructuraOk`, `usoCrearDelta`,
 // `usoActualizarDelta`, `usoCrearOk`, `usoActualizarOk`), los 6 bloques
-// `match /dashboard_.../{id}`, los 4 bloques
+// `match /dashboard_.../{id}`, los 6 bloques
 // `match /dashboard_config/...` (diseno_resets, diseno_contadores,
-// uso_contadores y distribucion) y el bloque `match /chats/{userId}` dentro
-// de tu archivo actual.
+// uso_contadores, distribucion, versiones y versiones_historial) y el bloque
+// `match /chats/{userId}` dentro de tu archivo actual.
 //
 // CAMBIOS DE ESTA VERSIÓN:
-//   - NUEVO bloque `match /dashboard_config/uso_contadores` (métricas de uso
+//   - NUEVO bloque `match /dashboard_config/versiones_historial` (archivo de
+//     versiones vencidas: lo escribe y lo lee solo el dashboard; la app no
+//     lo toca). Las versiones vencidas SIGUEN en `dashboard_config/versiones`
+//     para que las APK viejas continúen bloqueadas.
+//   - Bloque `match /dashboard_config/versiones` (control de versiones:
+//     la app lee la fecha de vencimiento de su versión; el dashboard la
+//     escribe). Es lo que usa el bloqueo de la app (utils/dateLock).
+//   - Bloque `match /dashboard_config/uso_contadores` (métricas de uso
 //     agregadas en un solo documento) y sus funciones auxiliares.
 //   - `dashboard_profiles` y `dashboard_interactions` quedan DEPRECADOS (las
 //     APK ya instaladas pueden seguir enviando esos eventos). No se borran
@@ -351,8 +358,31 @@ service cloud.firestore {
     //                      { modoDistribucion: "apk" | "play",
     //                        urlApk, urlPlay,
     //                        mensajeCompartir: { es, en, pt } }
-    //                      Más adelante comparte documento con el control de
-    //                      versiones (versionCodeActual, etc.).
+    //                      También es el enlace que abre el botón "Actualizar
+    //                      aplicación" de la pantalla de bloqueo.
+    //
+    //   versiones          control de versiones y bloqueo de la app. La app
+    //                      solo LEE; el dashboard (pestaña Versiones) escribe.
+    //                      { versiones: [
+    //                          { version: "1.3.0",
+    //                            lanzamiento: "2026-10-01",
+    //                            vencimiento: "2027-09-30" }, ... ],
+    //                        actualizadoEn }
+    //                      La app usa la fecha de vencimiento de SU versión
+    //                      (la de app.json) y la compara con la fecha del
+    //                      teléfono. Las versiones vencidas se quedan acá
+    //                      para que las APK viejas sigan bloqueadas.
+    //
+    //   versiones_historial archivo de versiones vencidas (pestaña Versiones,
+    //                      sección Historial). Solo lo usa el dashboard: la
+    //                      app NO lo lee ni lo escribe. Es un objeto (mapa
+    //                      por versión), no una lista:
+    //                      { registros: {
+    //                          v_1_0_0: { version: "1.0.0",
+    //                                     lanzamiento: "2026-01-15",
+    //                                     vencimiento: "2026-06-30",
+    //                                     archivadoEn: "2026-10-26" }, ... },
+    //                        actualizadoEn }
     // ============================================================
 
     match /dashboard_config/diseno_resets {
@@ -410,6 +440,34 @@ service cloud.firestore {
     match /dashboard_config/distribucion {
       allow get: if true;
       allow create, update, delete: if request.auth != null;
+    }
+
+    // Control de versiones: la app (sin sesión) lee por id, solo el
+    // dashboard (con sesión) escribe. Se acepta únicamente `versiones`
+    // (lista, máx. 200 entradas) y `actualizadoEn`.
+    match /dashboard_config/versiones {
+      allow get: if true;
+
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['versiones', 'actualizadoEn'])
+        && request.resource.data.get('versiones', []) is list
+        && request.resource.data.get('versiones', []).size() <= 200;
+
+      allow delete: if request.auth != null;
+    }
+
+    // Historial de versiones vencidas: solo el dashboard (con sesión) lee y
+    // escribe. La app no tiene acceso. Se acepta únicamente `registros`
+    // (mapa, máx. 200 entradas) y `actualizadoEn`.
+    match /dashboard_config/versiones_historial {
+      allow get: if request.auth != null;
+
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['registros', 'actualizadoEn'])
+        && request.resource.data.get('registros', {}) is map
+        && request.resource.data.get('registros', {}).size() <= 200;
+
+      allow delete: if request.auth != null;
     }
 
     // ============================================================
