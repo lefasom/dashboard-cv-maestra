@@ -13,6 +13,14 @@
 //       Al abrir esta pestaña, las versiones vencidas que todavía no están
 //       acá se archivan solas.
 //
+// Acciones por fila:
+//   Editar    carga la fila en el formulario (la versión no se puede
+//             cambiar; si te equivocaste de número, eliminá y creá de nuevo).
+//   Eliminar  pide confirmación. Quita la versión de `versiones` y su
+//             registro de `versiones_historial`. OJO: la app instalada con
+//             esa versión deja de tener vencimiento y NO se bloquea.
+//             Si solo te equivocaste en una fecha, usá Editar.
+//
 // Fechas en formato AAAA-MM-DD (el mismo que lee la app).
 
 import {
@@ -103,7 +111,19 @@ const FORM_VACIO = { version: "", lanzamiento: "", vencimiento: "" };
 // TABLA
 // ------------------------------------------------------------
 
-function TablaVersiones({ filas, vacio }) {
+function TablaVersiones({
+  filas,
+  vacio,
+  editando,
+  confirmando,
+  borrando,
+  onEditar,
+  onPedirEliminar,
+  onCancelar,
+  onEliminar,
+}) {
+  const hayConfirmacion = filas.some((v) => v.version === confirmando);
+
   return (
     <div className="scroll" style={{ maxHeight: "50vh" }}>
       <table className="lista">
@@ -113,12 +133,15 @@ function TablaVersiones({ filas, vacio }) {
             <th className="left">Lanzamiento</th>
             <th className="left">Vencimiento</th>
             <th className="left">Estado</th>
+            <th className="right">Acciones</th>
           </tr>
         </thead>
 
         <tbody>
           {filas.map((v) => {
             const estado = estadoDe(v.vencimiento);
+            const pidiendo = confirmando === v.version;
+            const ocupada = borrando === v.version;
 
             return (
               <tr key={v.version}>
@@ -130,6 +153,53 @@ function TablaVersiones({ filas, vacio }) {
                     {estado.texto}
                   </span>
                 </td>
+                <td className="right">
+                  <div className="fila-acciones">
+                    {pidiendo ? (
+                      <>
+                        <span className="confirmar-texto">¿Eliminar?</span>
+
+                        <button
+                          type="button"
+                          className="btn-eliminar"
+                          disabled={ocupada}
+                          onClick={() => onEliminar(v.version)}
+                        >
+                          {ocupada ? "Eliminando…" : "Sí, eliminar"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn-claro"
+                          disabled={ocupada}
+                          onClick={onCancelar}
+                        >
+                          No
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-claro"
+                          disabled={borrando !== null}
+                          onClick={() => onEditar(v)}
+                        >
+                          {editando === v.version ? "Editando…" : "Editar"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn-eliminar"
+                          disabled={borrando !== null}
+                          onClick={() => onPedirEliminar(v.version)}
+                        >
+                          Eliminar
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
               </tr>
             );
           })}
@@ -137,6 +207,14 @@ function TablaVersiones({ filas, vacio }) {
       </table>
 
       {filas.length === 0 && <p className="vacio">{vacio}</p>}
+
+      {hayConfirmacion && (
+        <p className="peligro-aviso" style={{ margin: "12px 18px" }}>
+          Si la eliminás, la app instalada con esa versión deja de tener fecha
+          de vencimiento y <strong>no se bloquea</strong>. Si solo te
+          equivocaste en una fecha, usá Editar.
+        </p>
+      )}
     </div>
   );
 }
@@ -151,10 +229,17 @@ export default function Versiones() {
   const [error, setError] = useState("");
 
   const [form, setForm] = useState(FORM_VACIO);
+  const [editando, setEditando] = useState(null); // versión que se edita
   const [guardando, setGuardando] = useState(false);
+  const [confirmando, setConfirmando] = useState(null); // versión a eliminar
+  const [borrando, setBorrando] = useState(null); // versión eliminándose
   const [mensaje, setMensaje] = useState(null); // { tipo: "ok" | "error", texto }
 
   const archivando = useRef(false);
+  const formRef = useRef(null);
+
+  const irAlFormulario = () =>
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   // Lectura en tiempo real de los dos documentos
   useEffect(() => {
@@ -244,7 +329,29 @@ export default function Versiones() {
   const cambiar = (campo) => (e) =>
     setForm((f) => ({ ...f, [campo]: e.target.value }));
 
-  const crear = async (e) => {
+  // ---- Editar ------------------------------------------------
+
+  const editar = (v) => {
+    setConfirmando(null);
+    setMensaje(null);
+    setForm({
+      version: v.version,
+      lanzamiento: v.lanzamiento,
+      vencimiento: v.vencimiento,
+    });
+    setEditando(v.version);
+    irAlFormulario();
+  };
+
+  const cancelarEdicion = () => {
+    setEditando(null);
+    setForm(FORM_VACIO);
+    setMensaje(null);
+  };
+
+  // ---- Crear / guardar cambios -------------------------------
+
+  const guardar = async (e) => {
     e.preventDefault();
     setMensaje(null);
 
@@ -294,6 +401,7 @@ export default function Versiones() {
       }
 
       setForm(FORM_VACIO);
+      setEditando(null);
       setMensaje({
         tipo: "ok",
         texto: existia
@@ -307,16 +415,64 @@ export default function Versiones() {
     }
   };
 
+  // ---- Eliminar ----------------------------------------------
+
+  const eliminar = async (version) => {
+    setMensaje(null);
+    setBorrando(version);
+
+    try {
+      const estaba = (lista ?? []).some((v) => v.version === version);
+
+      if (estaba) {
+        await setDoc(REF_VERSIONES, {
+          versiones: (lista ?? []).filter((v) => v.version !== version),
+          actualizadoEn: serverTimestamp(),
+        });
+      }
+
+      if (registros?.[claveDe(version)]) {
+        await updateDoc(REF_HISTORIAL, {
+          [`registros.${claveDe(version)}`]: deleteField(),
+          actualizadoEn: serverTimestamp(),
+        });
+      }
+
+      if (editando === version) {
+        setEditando(null);
+        setForm(FORM_VACIO);
+      }
+
+      setConfirmando(null);
+      setMensaje({ tipo: "ok", texto: `Versión ${version} eliminada.` });
+    } catch (err) {
+      setMensaje({ tipo: "error", texto: `No se pudo eliminar: ${err.message}` });
+      irAlFormulario();
+    } finally {
+      setBorrando(null);
+    }
+  };
+
+  const propsTabla = {
+    editando,
+    confirmando,
+    borrando,
+    onEditar: editar,
+    onPedirEliminar: setConfirmando,
+    onCancelar: () => setConfirmando(null),
+    onEliminar: eliminar,
+  };
+
   const cargando = !error && (lista === null || registros === null);
 
   return (
     <>
-      <section className="panel">
+      <section className="panel" ref={formRef}>
         <div className="panel-head">
-          <h2>Nueva versión</h2>
+          <h2>{editando ? `Editar versión ${editando}` : "Nueva versión"}</h2>
         </div>
 
-        <form className="form-version" onSubmit={crear}>
+        <form className="form-version" onSubmit={guardar}>
           <label className="campo">
             <span>Versión</span>
             <input
@@ -325,6 +481,7 @@ export default function Versiones() {
               placeholder="Ej: 1.4.0"
               value={form.version}
               onChange={cambiar("version")}
+              readOnly={editando !== null}
               autoComplete="off"
             />
           </label>
@@ -353,14 +510,32 @@ export default function Versiones() {
             />
           </label>
 
-          <button type="submit" disabled={guardando}>
-            {guardando ? "Guardando…" : "Crear"}
-          </button>
+          <div className="form-botones">
+            <button type="submit" disabled={guardando}>
+              {guardando
+                ? "Guardando…"
+                : editando
+                  ? "Guardar cambios"
+                  : "Crear"}
+            </button>
+
+            {editando && (
+              <button
+                type="button"
+                className="btn-claro"
+                disabled={guardando}
+                onClick={cancelarEdicion}
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
         </form>
 
         <p className="form-nota">
           La versión tiene que ser igual a la de app.json. Si ya existe, se
-          actualiza (así alargás su vencimiento).
+          actualiza (así alargás su vencimiento). Para corregir una fecha, tocá
+          Editar en la fila.
         </p>
 
         {mensaje && (
@@ -385,6 +560,7 @@ export default function Versiones() {
             <TablaVersiones
               filas={vigentes}
               vacio="No hay versiones vigentes. Creá una arriba."
+              {...propsTabla}
             />
           </section>
 
@@ -398,6 +574,7 @@ export default function Versiones() {
             <TablaVersiones
               filas={historial}
               vacio="Todavía no venció ninguna versión."
+              {...propsTabla}
             />
           </section>
         </>
