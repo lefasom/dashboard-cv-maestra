@@ -1,7 +1,8 @@
 // src/secciones/Datos.jsx  (Vite + React — Dashboard CV Master)
+// Es la pestaña "Historial".
 //
-// Restablecer datos: borra las colecciones que elijas de Firestore
-// (vuelven a cero). Es IRREVERSIBLE.
+// Restablecer datos: borra lo que elijas de Firestore
+// (vuelve a cero). Es IRREVERSIBLE.
 //
 // Seguridad:
 //   - no hay nada marcado de entrada
@@ -13,6 +14,12 @@
 // El borrado de "Chats" incluye los mensajes y los contadores diarios de
 // cada chat (Firestore no borra subcolecciones automáticamente desde el
 // cliente, por eso se recorren una por una).
+//
+// El borrado de "Uso" elimina el documento dashboard_config/uso_contadores
+// (las métricas actuales) y además limpia las colecciones VIEJAS
+// dashboard_interactions y dashboard_profiles, que ya no se leen pero pueden
+// seguir recibiendo eventos de APK antiguas. Los borrados cuentan para la
+// cuota diaria de Firestore.
 
 import {
   collection,
@@ -26,6 +33,7 @@ import { useState } from "react";
 
 import { COLECCIONES } from "../config";
 import { db } from "../firebase";
+import { borrarContadoresUso } from "../servicios/uso";
 
 const TANDA = 400;
 const PALABRA = "BORRAR";
@@ -40,20 +48,15 @@ const OPCIONES = [
   {
     id: "uso",
     label: "Uso",
-    detalle: "Editor abierto, desplazamientos y paginación",
-    coleccion: COLECCIONES.USO,
+    detalle:
+      "Contadores de uso de la app (modo edición, ajustes, tamaños, idiomas, perfiles) y eventos viejos",
+    esUso: true,
   },
   {
     id: "onboarding",
     label: "Onboarding",
     detalle: "Experiencia mejorada: áreas, etapas, extras y cambios",
     coleccion: COLECCIONES.ONBOARDING,
-  },
-  {
-    id: "perfiles",
-    label: "Perfiles",
-    detalle: "Profesiones de prueba y perfiles reales creados",
-    coleccion: COLECCIONES.PERFILES,
   },
   {
     id: "resenas",
@@ -108,6 +111,15 @@ const borrarChats = async (alAvanzar) => {
   }
 };
 
+// Uso: el documento de contadores + las colecciones viejas (deprecadas)
+const borrarUso = async (alAvanzar) => {
+  const borrado = await borrarContadoresUso();
+  if (borrado) alAvanzar?.(borrado);
+
+  await borrarColeccion(COLECCIONES.USO, alAvanzar);
+  await borrarColeccion(COLECCIONES.PERFILES, alAvanzar);
+};
+
 export default function Datos() {
   const [marcadas, setMarcadas] = useState({});
   const [confirmacion, setConfirmacion] = useState("");
@@ -142,6 +154,8 @@ export default function Datos() {
       for (const opcion of elegidas) {
         if (opcion.esChat) {
           await borrarChats(sumar);
+        } else if (opcion.esUso) {
+          await borrarUso(sumar);
         } else {
           await borrarColeccion(opcion.coleccion, sumar);
         }

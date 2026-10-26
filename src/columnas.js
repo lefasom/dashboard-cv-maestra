@@ -81,29 +81,30 @@ const columnasConteo = (labelNombre) => [
 export const COLUMNAS_AREAS = columnasConteo("Área");
 export const COLUMNAS_ETAPAS = columnasConteo("Momento laboral");
 export const COLUMNAS_EXTRAS = columnasConteo("Extra");
-export const COLUMNAS_ACCIONES = columnasConteo("Acción"); // la usa Uso
 
 // ============================================================
-// PERFILES
+// USO (contadores agregados)
+//
+// La columna "orden" nunca se muestra (inicial: false y estas tablas no
+// tienen menú de propiedades): solo sirve para que las filas salgan en el
+// orden fijo de la lista (0.9x, 1.0x, 1.1x...) en lugar de ordenarse por
+// nombre. Si una fila no trae pct (null) se muestra "—".
 // ============================================================
 
-export const COLUMNAS_PROFESIONES = [
-  { key: "nombre", label: "Profesión", align: "left", inicial: true, valor: (f) => f.nombre },
-  { key: "familia", label: "Familia", align: "left", inicial: true, valor: (f) => f.familia },
-  { key: "seleccionado", label: "Seleccionado", align: "right", inicial: true, valor: (f) => f.seleccionado },
-  { key: "activado", label: "Activado", align: "right", inicial: true, valor: (f) => f.activado },
-  { key: "total", label: "Total", align: "right", inicial: true, valor: (f) => f.total },
+const columnasUso = (labelNombre, labelPct = "%") => [
+  { key: "nombre", label: labelNombre, align: "left", inicial: true, valor: (f) => f.nombre },
+  { key: "cantidad", label: "Veces", align: "right", inicial: true, valor: (f) => f.cantidad },
+  {
+    key: "pct",
+    label: labelPct,
+    align: "right",
+    inicial: true,
+    valor: (f) => f.pct ?? -1,
+    render: (f) => (f.pct == null ? "—" : `${(f.pct * 100).toFixed(1)}%`),
+  },
+  { key: "orden", label: "Orden", align: "right", inicial: false, valor: (f) => f.orden ?? 0 },
 ];
 
-// ============================================================
-// USO
-// ============================================================
-
-export const COLUMNAS_USO_PLANTILLA = [
-  { key: "nombre", label: "Plantilla", align: "left", inicial: true, valor: (f) => f.nombre },
-  { key: "familia", label: "Familia", align: "left", inicial: true, valor: (f) => f.familiaLabel },
-  { key: "editor", label: "Editor", align: "right", inicial: true, valor: (f) => f.editor },
-  { key: "desplazar", label: "Desplazar", align: "right", inicial: true, valor: (f) => f.desplazar },
-  { key: "paginacion", label: "Paginación", align: "right", inicial: true, valor: (f) => f.paginacion },
-  { key: "total", label: "Total", align: "right", inicial: false, valor: (f) => f.total },
-];
+export const COLUMNAS_TAMANOS = columnasUso("Tamaño");
+export const COLUMNAS_AJUSTES = columnasUso("Ajuste", "% de aperturas");
+export const COLUMNAS_IDIOMAS = columnasUso("Idioma");

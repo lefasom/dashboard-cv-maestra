@@ -1,22 +1,6 @@
-// src/datosApp.js — onboarding, perfiles y uso de la app
-import {
-  ETAPAS,
-  EXTRAS,
-  PROFESIONES,
-  etiqueta,
-  etiquetaFamilia,
-} from "./catalogo";
-import {
-  ONB_ADMIN,
-  ONB_COMPLETADO,
-  PERFIL_ACTIVADO,
-  PERFIL_REAL,
-  PERFIL_SELECCIONADO,
-  USO_DESPLAZAR,
-  USO_EDITOR,
-  USO_PAGINACION,
-} from "./config";
-import { claveDe } from "./datos";
+// src/datosApp.js — onboarding y uso de la app
+import { ETAPAS, EXTRAS, etiqueta, etiquetaFamilia } from "./catalogo";
+import { ONB_ADMIN, ONB_COMPLETADO } from "./config";
 
 // Lista de [nombre, cantidad] -> filas con porcentaje
 const filasConteo = (entradas) => {
@@ -98,115 +82,112 @@ export const agruparOnboarding = (eventos) => {
 };
 
 // ============================================================
-// PERFILES
+// USO (documento dashboard_config/uso_contadores)
+//
+// Estructura del documento (la escribe la app, solo suma):
+//   uso:     paginacion_cambiada, editor_abierto, wizard_usado,
+//            perfil_nuevo_inicio, perfil_nuevo_mis_perfiles,
+//            perfil_activado_prueba, perfil_activado_real
+//   editor:  imagen, experiencia, datos, tamano, desplazar, vista
+//   tamanos: x0_9, x1_0, x1_1, x1_2, x1_3
+//   ajustes: abierto, idioma_cambiado, modo_oscuro_on, modo_oscuro_off,
+//            compartir, acerca_de, terminos
+//   idiomas: es, en, pt
+//
+// Si el documento no existe (datos = null) todo da 0.
 // ============================================================
 
-export const agruparPerfiles = (eventos) => {
-  const mapa = new Map();
-  let reales = 0;
+const TARJETAS_USO = [
+  ["paginacion_cambiada", "Cambios de paginación"],
+  ["editor_abierto", "Modo edición abierto"],
+  ["wizard_usado", "Wizard usado"],
+  ["perfil_nuevo_inicio", "Perfil nuevo desde Inicio"],
+  ["perfil_nuevo_mis_perfiles", "Perfil nuevo desde Mis perfiles"],
+  ["perfil_activado_prueba", "Perfil activado (prueba)"],
+  ["perfil_activado_real", "Perfil activado (real)"],
+];
 
-  eventos.forEach((e) => {
-    if (e.tipo === PERFIL_REAL) {
-      reales += 1;
-      return;
-    }
+const TARJETAS_EDITOR = [
+  ["imagen", "Imagen"],
+  ["experiencia", "Experiencia"],
+  ["datos", "Datos"],
+  ["tamano", "Tamaño"],
+  ["desplazar", "Desplazar"],
+  ["vista", "Vista"],
+];
 
-    if (e.tipo !== PERFIL_SELECCIONADO && e.tipo !== PERFIL_ACTIVADO) return;
+// Siempre visibles, aunque sean 0 (y en este orden)
+const TAMANOS = [
+  ["x0_9", "0.9x"],
+  ["x1_0", "1.0x"],
+  ["x1_1", "1.1x"],
+  ["x1_2", "1.2x"],
+  ["x1_3", "1.3x"],
+];
 
-    const id = String(e.nombre ?? "sin-nombre");
+const AJUSTES = [
+  ["abierto", "Ajustes abiertos"],
+  ["idioma_cambiado", "Cambios de idioma"],
+  ["modo_oscuro_on", "Modo oscuro activado"],
+  ["modo_oscuro_off", "Modo oscuro desactivado"],
+  ["compartir", "Compartir aplicación"],
+  ["acerca_de", "Acerca de"],
+  ["terminos", "Términos y condiciones"],
+];
 
-    if (!mapa.has(id)) {
-      mapa.set(id, {
-        clave: id,
-        nombre: etiqueta(PROFESIONES, id),
-        familia: e.extra?.familia ? etiquetaFamilia(e.extra.familia) : "—",
-        seleccionado: 0,
-        activado: 0,
-        total: 0,
-      });
-    }
+const IDIOMAS = [
+  ["es", "Español"],
+  ["en", "Inglés"],
+  ["pt", "Portugués"],
+];
 
-    const fila = mapa.get(id);
-
-    if (e.tipo === PERFIL_SELECCIONADO) fila.seleccionado += 1;
-    else fila.activado += 1;
-
-    fila.total += 1;
-  });
-
-  const profesiones = Array.from(mapa.values());
-
-  return {
-    profesiones,
-    resumen: {
-      reales,
-      seleccionados: profesiones.reduce((s, f) => s + f.seleccionado, 0),
-      activados: profesiones.reduce((s, f) => s + f.activado, 0),
-    },
+export const agruparUsoContadores = (datos) => {
+  const n = (grupo, clave) => {
+    const v = Number(datos?.[grupo]?.[clave]);
+    return Number.isFinite(v) && v > 0 ? v : 0;
   };
-};
 
-// ============================================================
-// USO
-// ============================================================
+  const tarjetas = (grupo, lista) =>
+    lista.map(([clave, label]) => ({ label, valor: n(grupo, clave) }));
 
-export const agruparUso = (eventos) => {
-  const editor = eventos.filter((e) => e.tipo === USO_EDITOR);
-  const desplazar = eventos.filter((e) => e.tipo === USO_DESPLAZAR);
-  const paginacion = eventos.filter((e) => e.tipo === USO_PAGINACION);
+  // Filas con % sobre el total del grupo, en el orden de la lista
+  const filasPorTotal = (grupo, lista) => {
+    const total = lista.reduce((s, [clave]) => s + n(grupo, clave), 0);
 
-  const aElemento = paginacion.filter(
-    (e) => e.extra?.paginacion === "elemento"
-  ).length;
+    return lista.map(([clave, nombre], i) => {
+      const cantidad = n(grupo, clave);
 
-  const aBloque = paginacion.filter(
-    (e) => e.extra?.paginacion === "bloque"
-  ).length;
-
-  const acciones = filasConteo([
-    ["Editor abierto", editor.length],
-    ["Desplazamiento cambiado", desplazar.length],
-    ["Paginación → por elemento", aElemento],
-    ["Paginación → por bloque", aBloque],
-  ]);
-
-  // Por plantilla
-  const mapa = new Map();
-
-  eventos.forEach((e) => {
-    const nombre = String(e.nombre ?? "sin-nombre");
-    const familia = e.extra?.familia ? String(e.extra.familia) : "";
-    const clave = claveDe(nombre, familia);
-
-    if (!mapa.has(clave)) {
-      mapa.set(clave, {
+      return {
         clave,
         nombre,
-        familiaLabel: familia ? etiquetaFamilia(familia) : "—",
-        editor: 0,
-        desplazar: 0,
-        paginacion: 0,
-        total: 0,
-      });
-    }
+        cantidad,
+        pct: total ? cantidad / total : 0,
+        orden: i,
+      };
+    });
+  };
 
-    const fila = mapa.get(clave);
+  // Ajustes: el % es respecto de las veces que se abrió Ajustes
+  // (la fila "Ajustes abiertos" no lleva %)
+  const abiertos = n("ajustes", "abierto");
 
-    if (e.tipo === USO_EDITOR) fila.editor += 1;
-    else if (e.tipo === USO_DESPLAZAR) fila.desplazar += 1;
-    else if (e.tipo === USO_PAGINACION) fila.paginacion += 1;
-    else return;
+  const ajustes = AJUSTES.map(([clave, nombre], i) => {
+    const cantidad = n("ajustes", clave);
 
-    fila.total += 1;
+    return {
+      clave,
+      nombre,
+      cantidad,
+      pct: clave === "abierto" ? null : abiertos ? cantidad / abiertos : 0,
+      orden: i,
+    };
   });
 
   return {
-    acciones,
-    porPlantilla: Array.from(mapa.values()),
-    resumen: {
-      editor: editor.length,
-      desplazar: desplazar.length,
-      paginacion: paginacion.length,
-    },
+    uso: tarjetas("uso", TARJETAS_USO),
+    editor: tarjetas("editor", TARJETAS_EDITOR),
+    tamanos: filasPorTotal("tamanos", TAMANOS),
+    ajustes,
+    idiomas: filasPorTotal("idiomas", IDIOMAS),
   };
 };

@@ -2,14 +2,21 @@ rules_version = '2';
 
 // IMPORTANTE: si ya tenés un firestore.rules con otras colecciones,
 // NO lo reemplaces entero. Copiá las funciones `eventoValido`, `resenaValida`
-// `resenaEditadaValida`, `disenoFeedbackValido`, `mapaUno` y `cambioUnDiseno`,
-// los 6 bloques `match /dashboard_.../{id}`, los 3 bloques
-// `match /dashboard_config/...` (diseno_resets, diseno_contadores y
-// distribucion) y el bloque `match /chats/{userId}` dentro de tu archivo
-// actual.
+// `resenaEditadaValida`, `disenoFeedbackValido`, `mapaUno`, `cambioUnDiseno`
+// y las del bloque USO AGREGADO (`usoEstructuraOk`, `usoCrearDelta`,
+// `usoActualizarDelta`, `usoCrearOk`, `usoActualizarOk`), los 6 bloques
+// `match /dashboard_.../{id}`, los 4 bloques
+// `match /dashboard_config/...` (diseno_resets, diseno_contadores,
+// uso_contadores y distribucion) y el bloque `match /chats/{userId}` dentro
+// de tu archivo actual.
 //
-// CAMBIO DE ESTA VERSIÓN: en `match /dashboard_onboarding/{id}` se agregó
-// el tipo 'onboarding_admin_uso'. Hay que PUBLICAR las reglas en Firebase.
+// CAMBIOS DE ESTA VERSIÓN:
+//   - NUEVO bloque `match /dashboard_config/uso_contadores` (métricas de uso
+//     agregadas en un solo documento) y sus funciones auxiliares.
+//   - `dashboard_profiles` y `dashboard_interactions` quedan DEPRECADOS (las
+//     APK ya instaladas pueden seguir enviando esos eventos). No se borran
+//     todavía.
+// Hay que PUBLICAR las reglas en Firebase.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -111,6 +118,147 @@ service cloud.firestore {
       return nuevo.diff(viejo).affectedKeys().size() == 1;
     }
 
+    // ============================================================
+    // USO AGREGADO (dashboard_config/uso_contadores)
+    //
+    // La app (sin sesión) envía UNA escritura en bloque con
+    // setDoc(..., { merge: true }) + increment(n). Lo que llega acá es el
+    // documento YA MEZCLADO, por eso se compara contra el existente.
+    //
+    // Estructura (exactamente estas claves, nada más):
+    //   uso:     paginacion_cambiada, editor_abierto, wizard_usado,
+    //            perfil_nuevo_inicio, perfil_nuevo_mis_perfiles,
+    //            perfil_activado_prueba, perfil_activado_real
+    //   editor:  imagen, experiencia, datos, tamano, desplazar, vista
+    //   tamanos: x0_9, x1_0, x1_1, x1_2, x1_3
+    //   ajustes: abierto, idioma_cambiado, modo_oscuro_on, modo_oscuro_off,
+    //            compartir, acerca_de, terminos
+    //   idiomas: es, en, pt
+    //
+    // Cada valor es int y el DELTA respecto del documento existente es
+    // >= 0 y <= 1000 por escritura (en create se compara contra 0).
+    //
+    // OJO: sin autenticación estas reglas NO pueden impedir que alguien
+    // suba números falsos (solo limitan el daño por escritura: máximo 1000
+    // por clave). Endurecimiento futuro: Firebase App Check.
+    //
+    // Reglas no permite bucles: hay una llamada explícita por clave.
+    // ============================================================
+
+    // Primer nivel y claves de cada grupo (exactamente las del modelo)
+    function usoEstructuraOk() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['uso', 'editor', 'tamanos', 'ajustes', 'idiomas'])
+        && d.get('uso', {}) is map
+        && d.get('editor', {}) is map
+        && d.get('tamanos', {}) is map
+        && d.get('ajustes', {}) is map
+        && d.get('idiomas', {}) is map
+        && d.get('uso', {}).keys().hasOnly([
+          'paginacion_cambiada', 'editor_abierto', 'wizard_usado',
+          'perfil_nuevo_inicio', 'perfil_nuevo_mis_perfiles',
+          'perfil_activado_prueba', 'perfil_activado_real'
+        ])
+        && d.get('editor', {}).keys().hasOnly([
+          'imagen', 'experiencia', 'datos', 'tamano', 'desplazar', 'vista'
+        ])
+        && d.get('tamanos', {}).keys().hasOnly([
+          'x0_9', 'x1_0', 'x1_1', 'x1_2', 'x1_3'
+        ])
+        && d.get('ajustes', {}).keys().hasOnly([
+          'abierto', 'idioma_cambiado', 'modo_oscuro_on', 'modo_oscuro_off',
+          'compartir', 'acerca_de', 'terminos'
+        ])
+        && d.get('idiomas', {}).keys().hasOnly(['es', 'en', 'pt']);
+    }
+
+    // CREATE: el valor nuevo es int entre 0 y 1000 (se compara contra 0)
+    function usoCrearDelta(g, k) {
+      let n = request.resource.data.get(g, {}).get(k, 0);
+      return n is int && n >= 0 && n <= 1000;
+    }
+
+    // UPDATE: el valor nuevo menos el existente es int entre 0 y 1000
+    function usoActualizarDelta(g, k) {
+      let n = request.resource.data.get(g, {}).get(k, 0);
+      let v = resource.data.get(g, {}).get(k, 0);
+      return n is int && v is int && n - v >= 0 && n - v <= 1000;
+    }
+
+    function usoCrearOk() {
+      return usoEstructuraOk()
+        // uso
+        && usoCrearDelta('uso', 'paginacion_cambiada')
+        && usoCrearDelta('uso', 'editor_abierto')
+        && usoCrearDelta('uso', 'wizard_usado')
+        && usoCrearDelta('uso', 'perfil_nuevo_inicio')
+        && usoCrearDelta('uso', 'perfil_nuevo_mis_perfiles')
+        && usoCrearDelta('uso', 'perfil_activado_prueba')
+        && usoCrearDelta('uso', 'perfil_activado_real')
+        // editor
+        && usoCrearDelta('editor', 'imagen')
+        && usoCrearDelta('editor', 'experiencia')
+        && usoCrearDelta('editor', 'datos')
+        && usoCrearDelta('editor', 'tamano')
+        && usoCrearDelta('editor', 'desplazar')
+        && usoCrearDelta('editor', 'vista')
+        // tamanos
+        && usoCrearDelta('tamanos', 'x0_9')
+        && usoCrearDelta('tamanos', 'x1_0')
+        && usoCrearDelta('tamanos', 'x1_1')
+        && usoCrearDelta('tamanos', 'x1_2')
+        && usoCrearDelta('tamanos', 'x1_3')
+        // ajustes
+        && usoCrearDelta('ajustes', 'abierto')
+        && usoCrearDelta('ajustes', 'idioma_cambiado')
+        && usoCrearDelta('ajustes', 'modo_oscuro_on')
+        && usoCrearDelta('ajustes', 'modo_oscuro_off')
+        && usoCrearDelta('ajustes', 'compartir')
+        && usoCrearDelta('ajustes', 'acerca_de')
+        && usoCrearDelta('ajustes', 'terminos')
+        // idiomas
+        && usoCrearDelta('idiomas', 'es')
+        && usoCrearDelta('idiomas', 'en')
+        && usoCrearDelta('idiomas', 'pt');
+    }
+
+    function usoActualizarOk() {
+      return usoEstructuraOk()
+        // uso
+        && usoActualizarDelta('uso', 'paginacion_cambiada')
+        && usoActualizarDelta('uso', 'editor_abierto')
+        && usoActualizarDelta('uso', 'wizard_usado')
+        && usoActualizarDelta('uso', 'perfil_nuevo_inicio')
+        && usoActualizarDelta('uso', 'perfil_nuevo_mis_perfiles')
+        && usoActualizarDelta('uso', 'perfil_activado_prueba')
+        && usoActualizarDelta('uso', 'perfil_activado_real')
+        // editor
+        && usoActualizarDelta('editor', 'imagen')
+        && usoActualizarDelta('editor', 'experiencia')
+        && usoActualizarDelta('editor', 'datos')
+        && usoActualizarDelta('editor', 'tamano')
+        && usoActualizarDelta('editor', 'desplazar')
+        && usoActualizarDelta('editor', 'vista')
+        // tamanos
+        && usoActualizarDelta('tamanos', 'x0_9')
+        && usoActualizarDelta('tamanos', 'x1_0')
+        && usoActualizarDelta('tamanos', 'x1_1')
+        && usoActualizarDelta('tamanos', 'x1_2')
+        && usoActualizarDelta('tamanos', 'x1_3')
+        // ajustes
+        && usoActualizarDelta('ajustes', 'abierto')
+        && usoActualizarDelta('ajustes', 'idioma_cambiado')
+        && usoActualizarDelta('ajustes', 'modo_oscuro_on')
+        && usoActualizarDelta('ajustes', 'modo_oscuro_off')
+        && usoActualizarDelta('ajustes', 'compartir')
+        && usoActualizarDelta('ajustes', 'acerca_de')
+        && usoActualizarDelta('ajustes', 'terminos')
+        // idiomas
+        && usoActualizarDelta('idiomas', 'es')
+        && usoActualizarDelta('idiomas', 'en')
+        && usoActualizarDelta('idiomas', 'pt');
+    }
+
     // Plantillas: descargas de PDF y agregadas a la colección
     match /dashboard_events/{id} {
       allow create: if eventoValido(['plantilla_descargada', 'plantilla_biblioteca']);
@@ -136,7 +284,10 @@ service cloud.firestore {
       allow delete: if request.auth != null;
     }
 
-    // Perfiles
+    // Perfiles — DEPRECADO.
+    // Reemplazado por dashboard_config/uso_contadores. Se deja habilitado
+    // solo para que las APK ya instaladas no reciban errores; se puede
+    // borrar este bloque cuando ya no queden versiones viejas en uso.
     match /dashboard_profiles/{id} {
       allow create: if eventoValido([
         'perfil_prueba_seleccionado',
@@ -148,7 +299,9 @@ service cloud.firestore {
       allow delete: if request.auth != null;
     }
 
-    // Uso / interacciones
+    // Uso / interacciones — DEPRECADO.
+    // Reemplazado por dashboard_config/uso_contadores. Mismo criterio que
+    // dashboard_profiles: se borra cuando ya no queden APK viejas.
     match /dashboard_interactions/{id} {
       allow create: if eventoValido([
         'paginacion_cambiada',
@@ -186,6 +339,11 @@ service cloud.firestore {
     //
     //   diseno_contadores  { likes: { "CV-06": 4 }, dislikes: { "CV-06": 1 } }
     //                      La app solo SUMA votos; el dashboard lo lee (una
+    //                      sola lectura) y lo reinicia.
+    //
+    //   uso_contadores     métricas de uso agregadas (ver bloque USO
+    //                      AGREGADO más arriba). La app solo SUMA (create /
+    //                      update, nunca delete); el dashboard lo lee (una
     //                      sola lectura) y lo reinicia.
     //
     //   distribucion       cómo se comparte la app (Ajustes > Compartir
@@ -232,6 +390,19 @@ service cloud.firestore {
           (cambioUnDiseno(request.resource.data.get('dislikes', {}), resource.data.get('dislikes', {}))
             && request.resource.data.get('likes', {}) == resource.data.get('likes', {}))
         );
+    }
+
+    // Métricas de uso agregadas.
+    match /dashboard_config/uso_contadores {
+      // Solo el dashboard lee
+      allow get: if request.auth != null;
+
+      // Dashboard (con sesión): cualquier cambio (reiniciar desde Historial)
+      allow create, update, delete: if request.auth != null;
+
+      // App (sin sesión): solo sumar, nunca borrar
+      allow create: if usoCrearOk();
+      allow update: if usoActualizarOk();
     }
 
     // Distribución de la app: la app (sin sesión) lee por id,

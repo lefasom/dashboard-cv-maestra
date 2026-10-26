@@ -12,24 +12,23 @@ import Datos from "./secciones/Datos";
 import Distribucion from "./secciones/Distribucion";
 import Estadisticas from "./secciones/Estadisticas";
 import Onboarding from "./secciones/Onboarding";
-import Perfiles from "./secciones/Perfiles";
 import Resenas from "./secciones/Resenas";
 import Uso from "./secciones/Uso";
 import Valoracion from "./secciones/Valoracion";
 import Versiones from "./secciones/Versiones";
 import "./estilos.css";
 
+// "Historial" (antes "Datos") va siempre al final
 const SECCIONES = [
   { id: "estadisticas", label: "Estadísticas", componente: Estadisticas },
   { id: "uso", label: "Uso", componente: Uso },
   { id: "onboarding", label: "Onboarding", componente: Onboarding },
-  { id: "perfiles", label: "Perfiles", componente: Perfiles },
   { id: "resenas", label: "Reseñas", componente: Resenas },
   { id: "chat", label: "Chat", componente: Chat },
   { id: "versiones", label: "Versiones", componente: Versiones },
   { id: "distribucion", label: "Distribución", componente: Distribucion },
-  { id: "datos", label: "Datos", componente: Datos },
-  { id: "valoracion", label: "Valoracion", componente: Valoracion },
+  { id: "valoracion", label: "Valoración", componente: Valoracion },
+  { id: "historial", label: "Historial", componente: Datos },
 ];
 
 function Dashboard({ usuario }) {

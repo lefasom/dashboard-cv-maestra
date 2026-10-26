@@ -175,16 +175,10 @@ textarea:focus {
 
 .menu {
   display: flex;
+  flex-wrap: wrap; /* si no entran todas, pasan a otra fila (nunca se cortan) */
   gap: 4px;
   margin-top: 14px;
   border-bottom: 1px solid var(--borde);
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.menu::-webkit-scrollbar {
-  display: none;
 }
 
 .tab {
@@ -1103,6 +1097,39 @@ input[type="search"]:focus {
 }
 
 /* ============================================================
+   MEDIA PANTALLA, TABLET Y CELULAR (hasta 1100 px)
+   Pestañas en una grilla que se acomoda sola al ancho disponible:
+   se ven todas, nunca se cortan, y la activa se marca con el fondo.
+   ============================================================ */
+
+@media (max-width: 1100px) {
+  .menu {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 6px;
+    padding-bottom: 12px;
+  }
+
+  .tab {
+    min-width: 0;
+    padding: 10px 6px;
+    border-radius: 10px;
+    background: var(--superficie-alt);
+    text-align: center;
+    white-space: normal;
+  }
+
+  .tab.activa {
+    background: var(--acento-suave);
+  }
+
+  /* La rayita de abajo ya no hace falta: la activa se marca con el fondo */
+  .tab.activa::after {
+    display: none;
+  }
+}
+
+/* ============================================================
    TABLET Y CELULAR (hasta 800 px)
    ============================================================ */
 
@@ -1132,33 +1159,8 @@ input[type="search"]:focus {
     margin-top: 12px;
   }
 
-  /* Pestañas: en vez de una fila con scroll (se esconden las últimas),
-     se acomodan en una grilla de 3 por fila y se ven todas */
   .menu {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
     margin-top: 12px;
-    padding-bottom: 12px;
-    overflow: visible;
-  }
-
-  .tab {
-    min-width: 0;
-    padding: 10px 6px;
-    border-radius: 10px;
-    background: var(--superficie-alt);
-    text-align: center;
-    white-space: normal;
-  }
-
-  .tab.activa {
-    background: var(--acento-suave);
-  }
-
-  /* La rayita de abajo ya no hace falta: la activa se marca con el fondo */
-  .tab.activa::after {
-    display: none;
   }
 
   .rejilla {

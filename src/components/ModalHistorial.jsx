@@ -9,8 +9,9 @@
 //      (se borra su reseña y la app vuelve a mostrar "Deja tu reseña").
 //      Viene marcado solo cuando se borra TODO el historial.
 //
-// Arriba hay un botón que abre OTRO modal para reiniciar los me gusta /
-// no me gusta de los diseños (ModalReinicioDisenos).
+// Arriba hay dos botones que abren OTROS modales:
+//   - reiniciar los me gusta / no me gusta de los diseños (ModalReinicioDisenos)
+//   - reiniciar los datos de Onboarding (ModalReinicioOnboarding)
 //
 // Es irreversible: hay que escribir BORRAR para habilitar el botón.
 
@@ -22,6 +23,7 @@ import {
   corteDe,
 } from "../servicios/historial";
 import ModalReinicioDisenos from "./ModalReinicioDisenos";
+import ModalReinicioOnboarding from "./ModalReinicioOnboarding";
 
 const PALABRA = "BORRAR";
 
@@ -52,6 +54,7 @@ export default function ModalHistorial({ chats, onClose }) {
   const [borrados, setBorrados] = useState(0);
   const [resultado, setResultado] = useState(null); // { ok, texto }
   const [verDisenos, setVerDisenos] = useState(false);
+  const [verOnboarding, setVerOnboarding] = useState(false);
 
   const opcionEdad = OPCIONES_EDAD.find((o) => o.id === edad) ?? OPCIONES_EDAD[0];
 
@@ -115,10 +118,13 @@ export default function ModalHistorial({ chats, onClose }) {
     }
   };
 
-  // Vista de "me gusta / no me gusta de diseños" (los estados de arriba
-  // se conservan al volver)
+  // Vistas de reinicio (los estados de arriba se conservan al volver)
   if (verDisenos) {
     return <ModalReinicioDisenos onVolver={() => setVerDisenos(false)} />;
+  }
+
+  if (verOnboarding) {
+    return <ModalReinicioOnboarding onVolver={() => setVerOnboarding(false)} />;
   }
 
   return (
@@ -144,8 +150,10 @@ export default function ModalHistorial({ chats, onClose }) {
         </div>
 
         <div className="modal-cuerpo">
-          {/* ME GUSTA / NO ME GUSTA DE DISEÑOS */}
-          <section>
+          {/* REINICIOS DEL DASHBOARD */}
+          <section
+            style={{ display: "flex", flexWrap: "wrap", gap: 8 }}
+          >
             <button
               type="button"
               className="btn-claro"
@@ -153,6 +161,15 @@ export default function ModalHistorial({ chats, onClose }) {
               disabled={borrando}
             >
               👍 👎 Reiniciar me gusta / no me gusta de diseños →
+            </button>
+
+            <button
+              type="button"
+              className="btn-claro"
+              onClick={() => setVerOnboarding(true)}
+              disabled={borrando}
+            >
+              ✨ Reiniciar onboarding →
             </button>
           </section>
 

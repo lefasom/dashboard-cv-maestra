@@ -3,7 +3,10 @@
 export const COLECCIONES = {
   PLANTILLAS: "dashboard_events",
   ONBOARDING: "dashboard_onboarding",
+  // DEPRECADA: reemplazada por dashboard_config/uso_contadores.
+  // Solo se usa para limpiar los eventos viejos desde Historial > Uso.
   PERFILES: "dashboard_profiles",
+  // DEPRECADA: igual que PERFILES (eventos viejos de uso/interacciones).
   USO: "dashboard_interactions",
   RESENAS: "dashboard_reviews",
   DISENOS: "dashboard_design_feedback", // "¿Te gustó el diseño?": me gusta / no me gusta
@@ -17,8 +20,13 @@ export const COLECCIONES = {
 //   sola lectura (Valoración y el modal de reinicio).
 // - REINICIO: marcas que leen los teléfonos para volver a preguntar
 //   "¿Te gustó el diseño?" (lo escribe el dashboard al reiniciar).
+// - USO_CONTADORES: métricas de uso agregadas de la app
+//   { uso: {...}, editor: {...}, tamanos: {...}, ajustes: {...}, idiomas: {...} }
+//   La app solo SUMA (en bloque, con increment). El dashboard lo lee con UNA
+//   sola lectura (pestaña Uso) y lo borra desde Historial > Uso.
 export const DOC_CONTADORES_DISENOS = "diseno_contadores";
 export const DOC_REINICIO_DISENOS = "diseno_resets";
+export const DOC_USO_CONTADORES = "uso_contadores";
 
 // OJO: todo se calcula sobre los N eventos más recientes. Si hay más, los
 // contadores pueden BAJAR en vez de crecer (EstadoCarga muestra un aviso).
@@ -50,16 +58,6 @@ export const TIPO_COLECCION = "plantilla_biblioteca"; // se bajó un diseño de 
 export const ONB_COMPLETADO = "onboarding_completado";
 export const ONB_ADMIN = "onboarding_admin_uso"; // uso del Admin y de cada botón Editar
 // (onboarding_editado / onboarding_desactivado ya no se muestran)
-
-// Perfiles
-export const PERFIL_SELECCIONADO = "perfil_prueba_seleccionado";
-export const PERFIL_ACTIVADO = "perfil_prueba_activado";
-export const PERFIL_REAL = "perfil_real_creado";
-
-// Uso
-export const USO_PAGINACION = "paginacion_cambiada";
-export const USO_EDITOR = "editor_abierto";
-export const USO_DESPLAZAR = "desplazamiento_cambiado";
 
 // Reseñas
 export const TIPO_RESENA = "resena_enviada";
