@@ -3,15 +3,29 @@ rules_version = '2';
 // IMPORTANTE: si ya tenés un firestore.rules con otras colecciones,
 // NO lo reemplaces entero. Copiá las funciones `eventoValido`, `resenaValida`
 // `resenaEditadaValida`, `disenoFeedbackValido`, `mapaUno`, `cambioUnDiseno`
-// y las del bloque USO AGREGADO (`usoEstructuraOk`, `usoCrearDelta`,
-// `usoActualizarDelta`, `usoCrearOk`, `usoActualizarOk`), los 6 bloques
+// y las del bloque USO AGREGADO (`usoDeltaOk`, `usoDelta`, `usoGrupoUso`,
+// `usoGrupoEditor`, `usoGrupoTamanos`, `usoGrupoAjustes`, `usoGrupoIdiomas`,
+// `usoCrearOk`, `usoActualizarOk`), los 6 bloques
 // `match /dashboard_.../{id}`, los 6 bloques
 // `match /dashboard_config/...` (diseno_resets, diseno_contadores,
 // uso_contadores, distribucion, versiones y versiones_historial) y el bloque
 // `match /chats/{userId}` dentro de tu archivo actual.
 //
+// Si venías de la versión anterior, BORRÁ las funciones viejas del bloque
+// USO AGREGADO (`usoEstructuraOk`, `usoCrearDelta`, `usoGrupoClavesOk`,
+// `usoActualizarUsoOk`, `usoActualizarEditorOk`, `usoActualizarTamanosOk`,
+// `usoActualizarAjustesOk`, `usoActualizarIdiomasOk`): ya no se usan.
+//
 // CAMBIOS DE ESTA VERSIÓN:
-//   - NUEVO bloque `match /dashboard_config/versiones_historial` (archivo de
+//   - USO AGREGADO: CREATE y UPDATE se rehicieron para gastar muchísimas
+//     menos expresiones. La versión anterior evaluaba las 25 claves en cada
+//     escritura (~1.000 expresiones, el límite de Firestore por pedido) y
+//     Firestore la rechazaba con permission-denied aunque los datos fueran
+//     válidos. Ahora solo se validan los grupos y las claves que la
+//     escritura CAMBIA, y CREATE / UPDATE comparten los mismos validadores.
+//     Las validaciones son las mismas: claves permitidas, valores enteros,
+//     delta entre 0 y 1000 por clave y por escritura, nada de restar.
+//   - Bloque `match /dashboard_config/versiones_historial` (archivo de
 //     versiones vencidas: lo escribe y lo lee solo el dashboard; la app no
 //     lo toca). Las versiones vencidas SIGUEN en `dashboard_config/versiones`
 //     para que las APK viejas continúen bloqueadas.
@@ -145,125 +159,136 @@ service cloud.firestore {
     // Cada valor es int y el DELTA respecto del documento existente es
     // >= 0 y <= 1000 por escritura (en create se compara contra 0).
     //
+    // POR QUÉ ESTÁ ARMADO ASÍ (límite de Firestore: 1.000 expresiones
+    // evaluadas por pedido):
+    //   Las reglas no permiten bucles, así que hay una llamada por clave.
+    //   Evaluar las 25 claves en cada escritura rozaba el límite y
+    //   Firestore rechazaba con permission-denied aunque los datos fueran
+    //   válidos. Por eso:
+    //     1) Solo se revisan los GRUPOS que la escritura cambia
+    //        (`!('editor' in top) || ...` salta el resto).
+    //     2) Dentro de un grupo, solo se revisa el delta de las CLAVES que
+    //        cambian (`!(k in ch) || ...`).
+    //     3) CREATE y UPDATE usan los mismos validadores de grupo: en
+    //        CREATE el grupo "existente" es `{}`.
+    //
+    // Parámetros de los validadores de grupo:
+    //   n  = el grupo en el documento NUEVO (ya mezclado)
+    //   v  = el mismo grupo en el documento EXISTENTE (`{}` en create)
+    //
     // OJO: sin autenticación estas reglas NO pueden impedir que alguien
     // suba números falsos (solo limitan el daño por escritura: máximo 1000
     // por clave). Endurecimiento futuro: Firebase App Check.
-    //
-    // Reglas no permite bucles: hay una llamada explícita por clave.
     // ============================================================
 
-    // Primer nivel y claves de cada grupo (exactamente las del modelo)
-    function usoEstructuraOk() {
-      let d = request.resource.data;
-      return d.keys().hasOnly(['uso', 'editor', 'tamanos', 'ajustes', 'idiomas'])
-        && d.get('uso', {}) is map
-        && d.get('editor', {}) is map
-        && d.get('tamanos', {}) is map
-        && d.get('ajustes', {}) is map
-        && d.get('idiomas', {}) is map
-        && d.get('uso', {}).keys().hasOnly([
+    // El delta (entero) está entre 0 y 1000
+    function usoDeltaOk(x) {
+      return x is int && x >= 0 && x <= 1000;
+    }
+
+    // `ch` = claves del grupo que la escritura cambia. Si la clave `k` no
+    // cambia, no se evalúa nada más (corta enseguida).
+    function usoDelta(n, v, ch, k) {
+      return !(k in ch) || usoDeltaOk(n.get(k, 0) - v.get(k, 0));
+    }
+
+    function usoGrupoUso(n, v) {
+      let ch = n.diff(v).affectedKeys();
+      return n is map
+        && v is map
+        && ch.hasOnly([
           'paginacion_cambiada', 'editor_abierto', 'wizard_usado',
           'perfil_nuevo_inicio', 'perfil_nuevo_mis_perfiles',
           'perfil_activado_prueba', 'perfil_activado_real'
         ])
-        && d.get('editor', {}).keys().hasOnly([
+        && usoDelta(n, v, ch, 'paginacion_cambiada')
+        && usoDelta(n, v, ch, 'editor_abierto')
+        && usoDelta(n, v, ch, 'wizard_usado')
+        && usoDelta(n, v, ch, 'perfil_nuevo_inicio')
+        && usoDelta(n, v, ch, 'perfil_nuevo_mis_perfiles')
+        && usoDelta(n, v, ch, 'perfil_activado_prueba')
+        && usoDelta(n, v, ch, 'perfil_activado_real');
+    }
+
+    function usoGrupoEditor(n, v) {
+      let ch = n.diff(v).affectedKeys();
+      return n is map
+        && v is map
+        && ch.hasOnly([
           'imagen', 'experiencia', 'datos', 'tamano', 'desplazar', 'vista'
         ])
-        && d.get('tamanos', {}).keys().hasOnly([
-          'x0_9', 'x1_0', 'x1_1', 'x1_2', 'x1_3'
-        ])
-        && d.get('ajustes', {}).keys().hasOnly([
+        && usoDelta(n, v, ch, 'imagen')
+        && usoDelta(n, v, ch, 'experiencia')
+        && usoDelta(n, v, ch, 'datos')
+        && usoDelta(n, v, ch, 'tamano')
+        && usoDelta(n, v, ch, 'desplazar')
+        && usoDelta(n, v, ch, 'vista');
+    }
+
+    function usoGrupoTamanos(n, v) {
+      let ch = n.diff(v).affectedKeys();
+      return n is map
+        && v is map
+        && ch.hasOnly(['x0_9', 'x1_0', 'x1_1', 'x1_2', 'x1_3'])
+        && usoDelta(n, v, ch, 'x0_9')
+        && usoDelta(n, v, ch, 'x1_0')
+        && usoDelta(n, v, ch, 'x1_1')
+        && usoDelta(n, v, ch, 'x1_2')
+        && usoDelta(n, v, ch, 'x1_3');
+    }
+
+    function usoGrupoAjustes(n, v) {
+      let ch = n.diff(v).affectedKeys();
+      return n is map
+        && v is map
+        && ch.hasOnly([
           'abierto', 'idioma_cambiado', 'modo_oscuro_on', 'modo_oscuro_off',
           'compartir', 'acerca_de', 'terminos'
         ])
-        && d.get('idiomas', {}).keys().hasOnly(['es', 'en', 'pt']);
+        && usoDelta(n, v, ch, 'abierto')
+        && usoDelta(n, v, ch, 'idioma_cambiado')
+        && usoDelta(n, v, ch, 'modo_oscuro_on')
+        && usoDelta(n, v, ch, 'modo_oscuro_off')
+        && usoDelta(n, v, ch, 'compartir')
+        && usoDelta(n, v, ch, 'acerca_de')
+        && usoDelta(n, v, ch, 'terminos');
     }
 
-    // CREATE: el valor nuevo es int entre 0 y 1000 (se compara contra 0)
-    function usoCrearDelta(g, k) {
-      let n = request.resource.data.get(g, {}).get(k, 0);
-      return n is int && n >= 0 && n <= 1000;
+    function usoGrupoIdiomas(n, v) {
+      let ch = n.diff(v).affectedKeys();
+      return n is map
+        && v is map
+        && ch.hasOnly(['es', 'en', 'pt'])
+        && usoDelta(n, v, ch, 'es')
+        && usoDelta(n, v, ch, 'en')
+        && usoDelta(n, v, ch, 'pt');
     }
 
-    // UPDATE: el valor nuevo menos el existente es int entre 0 y 1000
-    function usoActualizarDelta(g, k) {
-      let n = request.resource.data.get(g, {}).get(k, 0);
-      let v = resource.data.get(g, {}).get(k, 0);
-      return n is int && v is int && n - v >= 0 && n - v <= 1000;
-    }
-
+    // CREATE (el documento todavía no existe): los primeros niveles deben
+    // ser solo los 5 grupos, y cada grupo presente se valida contra `{}`.
     function usoCrearOk() {
-      return usoEstructuraOk()
-        // uso
-        && usoCrearDelta('uso', 'paginacion_cambiada')
-        && usoCrearDelta('uso', 'editor_abierto')
-        && usoCrearDelta('uso', 'wizard_usado')
-        && usoCrearDelta('uso', 'perfil_nuevo_inicio')
-        && usoCrearDelta('uso', 'perfil_nuevo_mis_perfiles')
-        && usoCrearDelta('uso', 'perfil_activado_prueba')
-        && usoCrearDelta('uso', 'perfil_activado_real')
-        // editor
-        && usoCrearDelta('editor', 'imagen')
-        && usoCrearDelta('editor', 'experiencia')
-        && usoCrearDelta('editor', 'datos')
-        && usoCrearDelta('editor', 'tamano')
-        && usoCrearDelta('editor', 'desplazar')
-        && usoCrearDelta('editor', 'vista')
-        // tamanos
-        && usoCrearDelta('tamanos', 'x0_9')
-        && usoCrearDelta('tamanos', 'x1_0')
-        && usoCrearDelta('tamanos', 'x1_1')
-        && usoCrearDelta('tamanos', 'x1_2')
-        && usoCrearDelta('tamanos', 'x1_3')
-        // ajustes
-        && usoCrearDelta('ajustes', 'abierto')
-        && usoCrearDelta('ajustes', 'idioma_cambiado')
-        && usoCrearDelta('ajustes', 'modo_oscuro_on')
-        && usoCrearDelta('ajustes', 'modo_oscuro_off')
-        && usoCrearDelta('ajustes', 'compartir')
-        && usoCrearDelta('ajustes', 'acerca_de')
-        && usoCrearDelta('ajustes', 'terminos')
-        // idiomas
-        && usoCrearDelta('idiomas', 'es')
-        && usoCrearDelta('idiomas', 'en')
-        && usoCrearDelta('idiomas', 'pt');
+      let d = request.resource.data;
+      let top = d.keys();
+      return top.hasOnly(['uso', 'editor', 'tamanos', 'ajustes', 'idiomas'])
+        && (!('uso' in top) || usoGrupoUso(d.get('uso', {}), {}))
+        && (!('editor' in top) || usoGrupoEditor(d.get('editor', {}), {}))
+        && (!('tamanos' in top) || usoGrupoTamanos(d.get('tamanos', {}), {}))
+        && (!('ajustes' in top) || usoGrupoAjustes(d.get('ajustes', {}), {}))
+        && (!('idiomas' in top) || usoGrupoIdiomas(d.get('idiomas', {}), {}));
     }
 
+    // UPDATE (el documento ya existe): solo se revisan los grupos que la
+    // escritura cambia, comparados contra el documento existente.
     function usoActualizarOk() {
-      return usoEstructuraOk()
-        // uso
-        && usoActualizarDelta('uso', 'paginacion_cambiada')
-        && usoActualizarDelta('uso', 'editor_abierto')
-        && usoActualizarDelta('uso', 'wizard_usado')
-        && usoActualizarDelta('uso', 'perfil_nuevo_inicio')
-        && usoActualizarDelta('uso', 'perfil_nuevo_mis_perfiles')
-        && usoActualizarDelta('uso', 'perfil_activado_prueba')
-        && usoActualizarDelta('uso', 'perfil_activado_real')
-        // editor
-        && usoActualizarDelta('editor', 'imagen')
-        && usoActualizarDelta('editor', 'experiencia')
-        && usoActualizarDelta('editor', 'datos')
-        && usoActualizarDelta('editor', 'tamano')
-        && usoActualizarDelta('editor', 'desplazar')
-        && usoActualizarDelta('editor', 'vista')
-        // tamanos
-        && usoActualizarDelta('tamanos', 'x0_9')
-        && usoActualizarDelta('tamanos', 'x1_0')
-        && usoActualizarDelta('tamanos', 'x1_1')
-        && usoActualizarDelta('tamanos', 'x1_2')
-        && usoActualizarDelta('tamanos', 'x1_3')
-        // ajustes
-        && usoActualizarDelta('ajustes', 'abierto')
-        && usoActualizarDelta('ajustes', 'idioma_cambiado')
-        && usoActualizarDelta('ajustes', 'modo_oscuro_on')
-        && usoActualizarDelta('ajustes', 'modo_oscuro_off')
-        && usoActualizarDelta('ajustes', 'compartir')
-        && usoActualizarDelta('ajustes', 'acerca_de')
-        && usoActualizarDelta('ajustes', 'terminos')
-        // idiomas
-        && usoActualizarDelta('idiomas', 'es')
-        && usoActualizarDelta('idiomas', 'en')
-        && usoActualizarDelta('idiomas', 'pt');
+      let d = request.resource.data;
+      let r = resource.data;
+      let top = d.diff(r).affectedKeys();
+      return top.hasOnly(['uso', 'editor', 'tamanos', 'ajustes', 'idiomas'])
+        && (!('uso' in top) || usoGrupoUso(d.get('uso', {}), r.get('uso', {})))
+        && (!('editor' in top) || usoGrupoEditor(d.get('editor', {}), r.get('editor', {})))
+        && (!('tamanos' in top) || usoGrupoTamanos(d.get('tamanos', {}), r.get('tamanos', {})))
+        && (!('ajustes' in top) || usoGrupoAjustes(d.get('ajustes', {}), r.get('ajustes', {})))
+        && (!('idiomas' in top) || usoGrupoIdiomas(d.get('idiomas', {}), r.get('idiomas', {})));
     }
 
     // Plantillas: descargas de PDF y agregadas a la colección
