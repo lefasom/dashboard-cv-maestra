@@ -19,6 +19,15 @@
 //     los NOMBRES de los diseños de CV que ese usuario votó (se busca por
 //     userId en dashboard_design_feedback; es el mismo id que el chat).
 //
+// ABRIR UN CHAT DESDE OTRA PESTAÑA (por ejemplo desde Reseñas)
+//   Props opcionales:
+//     chatIdAbrir   -> id del chat que se quiere abrir (el chatId de la reseña)
+//     onChatAbierto -> se llama cuando Chat ya procesó el pedido, para que el
+//                      padre ponga chatIdAbrir en null
+//   Cuando llega chatIdAbrir y la lista de chats ya cargó, se abre ese chat
+//   (si estaba activo "Solo sin responder", se quita para que se vea). Si el
+//   chat no existe (por ejemplo, se borró), se muestra un aviso.
+//
 // NOMBRE ENTRE PARÉNTESIS
 //   Se escuchan las reseñas (dashboard_reviews) y se arma un mapa
 //   chatId -> nombre. Si el usuario cambia su reseña desde la app, el
@@ -246,6 +255,13 @@ const ESTILOS_MENU = `
   font-weight: 600;
   opacity: 0.75;
 }
+
+.chat-aviso-abrir {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 `;
 
 // ------------------------------------------------------------
@@ -349,7 +365,7 @@ const fichaSegunMensajes = (lista) => {
 // COMPONENTE
 // ------------------------------------------------------------
 
-export default function Chat({ chats }) {
+export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
   const { chats: lista = [], resumen, cargando, error } = chats ?? {};
 
   const [seleccionId, setSeleccionId] = useState(null);
@@ -370,6 +386,10 @@ export default function Chat({ chats }) {
   // Nombre ficticio de cada chat, tomado de su reseña: { [chatId]: nombre }
   const [nombres, setNombres] = useState({});
 
+  // Aviso cuando se pidió abrir un chat que no existe (por ejemplo, desde
+  // una reseña cuyo chat ya se borró)
+  const [avisoChat, setAvisoChat] = useState(null);
+
   // Menú ⋯ de un mensaje: { id, de, top, left }
   const [menu, setMenu] = useState(null);
   // Mensaje que se está editando y su texto
@@ -383,6 +403,10 @@ export default function Chat({ chats }) {
 
   const finRef = useRef(null);
 
+  // Último chatIdAbrir ya procesado (evita volver a abrirlo cada vez que la
+  // lista de chats se actualiza)
+  const abiertoRef = useRef(null);
+
   const seleccionado = useMemo(
     () => lista.find((c) => c.id === seleccionId) ?? null,
     [lista, seleccionId]
@@ -393,6 +417,40 @@ export default function Chat({ chats }) {
     () => (soloSinResponder ? lista.filter((c) => c.sinResponder) : lista),
     [lista, soloSinResponder]
   );
+
+  // Abrir un chat pedido desde afuera (por ejemplo, desde una reseña).
+  // Espera a que la lista de chats haya cargado.
+  useEffect(() => {
+    if (!chatIdAbrir) {
+      abiertoRef.current = null;
+      return;
+    }
+
+    if (cargando || abiertoRef.current === chatIdAbrir) return;
+
+    abiertoRef.current = chatIdAbrir;
+
+    if (lista.some((c) => c.id === chatIdAbrir)) {
+      // Si estaba el filtro "Solo sin responder", se quita para que el chat
+      // aparezca en la lista
+      setSoloSinResponder(false);
+      setSeleccionId(chatIdAbrir);
+      setAvisoChat(null);
+
+      // Deja el chat a la vista en la lista de la izquierda
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`chat-item-${chatIdAbrir}`)
+          ?.scrollIntoView({ block: "nearest" });
+      });
+    } else {
+      setAvisoChat(
+        "No se encontró el chat de esa reseña. Puede que se haya borrado."
+      );
+    }
+
+    onChatAbierto?.();
+  }, [chatIdAbrir, cargando, lista, onChatAbierto]);
 
   // Nombres ficticios: se escuchan las reseñas (la más nueva primero) y se
   // guarda, por cada chatId, el nombre de su reseña más reciente
@@ -697,6 +755,19 @@ export default function Chat({ chats }) {
       {cargando && <p className="estado-carga">Cargando…</p>}
       {error && <p className="error">Error: {error}</p>}
 
+      {avisoChat && (
+        <p className="aviso chat-aviso-abrir">
+          <span>{avisoChat}</span>
+          <button
+            type="button"
+            className="btn-claro"
+            onClick={() => setAvisoChat(null)}
+          >
+            Cerrar
+          </button>
+        </p>
+      )}
+
       {/* ---------------- TARJETAS ---------------- */}
       <div className="resumen">
         <div className="card">
@@ -768,9 +839,13 @@ export default function Chat({ chats }) {
             {visibles.map((c) => (
               <button
                 key={c.id}
+                id={`chat-item-${c.id}`}
                 type="button"
                 className={`chat-item${c.id === seleccionId ? " activo" : ""}`}
-                onClick={() => setSeleccionId(c.id)}
+                onClick={() => {
+                  setAvisoChat(null);
+                  setSeleccionId(c.id);
+                }}
               >
                 <span className="chat-avatar">
                   {c.numero}
