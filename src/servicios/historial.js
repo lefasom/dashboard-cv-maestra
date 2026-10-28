@@ -7,14 +7,15 @@
 // Qué hace por cada chat:
 //   1) Borra sus mensajes (anteriores al corte, o todos).
 //   2) Borra sus contadores diarios (los de días anteriores al corte, o todos).
-//   3) Opcional (resetearResena): borra la reseña de ese usuario
-//      (dashboard_reviews con su chatId) y escribe `resetEn` en su ficha.
-//      La app, al verlo, olvida la reseña y vuelve a mostrar "Deja tu reseña".
-//   4) Recalcula la ficha (último mensaje, última respuesta) con lo que
+//   3) Recalcula la ficha (último mensaje, última respuesta) con lo que
 //      quedó. La ficha NO se borra: así el chat conserva su número.
 //
-// Las reseñas viejas (enviadas antes de esta versión) no tienen chatId, así
-// que no se pueden vincular a un usuario: esas se borran desde "Datos".
+// IMPORTANTE: este borrado NO toca las reseñas. Las reseñas se gestionan
+// aparte, desde la pestaña "Historial" (ver servicios/historialResenas.js),
+// y allí se avisa a las apps para que limpien su Store.
+//
+// Este archivo también exporta OPCIONES_EDAD y corteDe, que usan los dos
+// modales (chats y reseñas).
 //
 // Requiere sesión iniciada y las reglas nuevas de firestore.rules.
 
@@ -123,19 +124,8 @@ const borrarLimites = async (chatId, corteMs, alAvanzar) => {
   );
 };
 
-const borrarResenasDe = async (chatId, alAvanzar) => {
-  const snap = await getDocs(
-    query(collection(db, COLECCIONES.RESENAS), where("chatId", "==", chatId))
-  );
-
-  await borrarLista(
-    snap.docs.map((d) => d.ref),
-    alAvanzar
-  );
-};
-
 // Deja la ficha coherente con los mensajes que quedaron
-const recalcularFicha = async (chatId, resetearResena) => {
+const recalcularFicha = async (chatId) => {
   const snap = await getDocs(
     query(
       collection(db, COLECCIONES.CHATS, chatId, "messages"),
@@ -168,7 +158,6 @@ const recalcularFicha = async (chatId, resetearResena) => {
   };
 
   if (mensajes.length === 0) cambios.soporteLeyoHasta = 0;
-  if (resetearResena) cambios.resetEn = Date.now();
 
   await updateDoc(doc(db, COLECCIONES.CHATS, chatId), cambios);
 };
@@ -179,7 +168,6 @@ const recalcularFicha = async (chatId, resetearResena) => {
 // @param {object}   opciones
 //   chats           lista de chats a limpiar ({ id, ... })
 //   corteMs         borrar lo anterior a esta fecha (null = todo)
-//   resetearResena  borrar también la reseña y permitir reseñar de nuevo
 //   alAvanzar(n)    se llama con la cantidad de documentos borrados
 // @returns {Promise<number>} total de documentos borrados
 // ------------------------------------------------------------
@@ -187,7 +175,6 @@ const recalcularFicha = async (chatId, resetearResena) => {
 export const borrarHistorial = async ({
   chats,
   corteMs = null,
-  resetearResena = false,
   alAvanzar,
 }) => {
   let total = 0;
@@ -201,9 +188,7 @@ export const borrarHistorial = async ({
     await borrarMensajes(chat.id, corteMs, sumar);
     await borrarLimites(chat.id, corteMs, sumar);
 
-    if (resetearResena) await borrarResenasDe(chat.id, sumar);
-
-    await recalcularFicha(chat.id, resetearResena);
+    await recalcularFicha(chat.id);
   }
 
   return total;

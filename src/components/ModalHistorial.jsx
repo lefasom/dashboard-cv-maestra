@@ -5,9 +5,10 @@
 //   1) Qué chats: todos / respondidos / sin responder
 //   2) Qué mensajes: todo el historial, o los anteriores a 1, 2, 3, 4, 5, 6
 //      meses o 1 año
-//   3) Opcional: que esos usuarios puedan volver a dejar su reseña
-//      (se borra su reseña y la app vuelve a mostrar "Deja tu reseña").
-//      Viene marcado solo cuando se borra TODO el historial.
+//
+// Las reseñas YA NO se gestionan acá: borrar chats no toca las reseñas.
+// Para borrar reseñas (y limpiar el Store de cada app) se usa
+// "Gestionar reseñas" en la pestaña Historial.
 //
 // Arriba hay dos botones que abren OTROS modales:
 //   - reiniciar los me gusta / no me gusta de los diseños (ModalReinicioDisenos)
@@ -15,7 +16,7 @@
 //
 // Es irreversible: hay que escribir BORRAR para habilitar el botón.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   OPCIONES_EDAD,
@@ -48,7 +49,6 @@ const ALCANCES = [
 export default function ModalHistorial({ chats, onClose }) {
   const [alcance, setAlcance] = useState("todos");
   const [edad, setEdad] = useState("todo");
-  const [resetearResena, setResetearResena] = useState(true);
   const [confirmacion, setConfirmacion] = useState("");
   const [borrando, setBorrando] = useState(false);
   const [borrados, setBorrados] = useState(0);
@@ -57,12 +57,6 @@ export default function ModalHistorial({ chats, onClose }) {
   const [verOnboarding, setVerOnboarding] = useState(false);
 
   const opcionEdad = OPCIONES_EDAD.find((o) => o.id === edad) ?? OPCIONES_EDAD[0];
-
-  // Al cambiar la antigüedad, la casilla de reseña vuelve a su valor por
-  // defecto: marcada solo si se borra todo el historial
-  useEffect(() => {
-    setResetearResena(edad === "todo");
-  }, [edad]);
 
   const elegidos = useMemo(
     () =>
@@ -94,7 +88,6 @@ export default function ModalHistorial({ chats, onClose }) {
       cuenta = await borrarHistorial({
         chats: elegidos,
         corteMs: corteDe(opcionEdad.meses),
-        resetearResena,
         alAvanzar: setBorrados,
       });
 
@@ -215,36 +208,14 @@ export default function ModalHistorial({ chats, onClose }) {
             </div>
           </section>
 
-          {/* 3) RESEÑA */}
-          <section>
-            <h3>3. Reseña</h3>
-
-            <label className="datos-item">
-              <input
-                type="checkbox"
-                checked={resetearResena}
-                onChange={(e) => setResetearResena(e.target.checked)}
-                disabled={borrando}
-              />
-              <span>
-                <strong>Permitir que vuelvan a dejar su reseña</strong>
-                <small>
-                  Borra la reseña de esos usuarios y la app les vuelve a
-                  mostrar “Deja tu reseña” en lugar del mensaje de gracias.
-                </small>
-              </span>
-            </label>
-          </section>
-
           <p className="peligro-aviso">
             Se borrarán los mensajes{" "}
             {opcionEdad.meses === 0
               ? "de todo el historial"
               : `anteriores a hace ${opcionEdad.label}`}{" "}
             de <strong>{elegidos.length}</strong>{" "}
-            {elegidos.length === 1 ? "chat" : "chats"}
-            {resetearResena ? ", y esos usuarios podrán reseñar de nuevo" : ""}.
-            Esto <strong>no se puede deshacer</strong>.
+            {elegidos.length === 1 ? "chat" : "chats"}. Las reseñas no se
+            tocan. Esto <strong>no se puede deshacer</strong>.
           </p>
 
           <div className="peligro-confirmar">

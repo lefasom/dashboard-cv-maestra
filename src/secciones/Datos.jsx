@@ -1,7 +1,10 @@
 // src/secciones/Datos.jsx  (Vite + React — Dashboard CV Master)
 // Es la pestaña "Historial".
 //
-// Restablecer datos: borra lo que elijas de Firestore
+// Arriba: "Gestionar reseñas" (borrar puntuaciones y comentarios por
+// antigüedad, avisando a cada app para que limpie su Store de reseñas).
+//
+// Abajo: Restablecer datos: borra lo que elijas de Firestore
 // (vuelve a cero). Es IRREVERSIBLE.
 //
 // Seguridad:
@@ -14,6 +17,11 @@
 // El borrado de "Chats" incluye los mensajes y los contadores diarios de
 // cada chat (Firestore no borra subcolecciones automáticamente desde el
 // cliente, por eso se recorren una por una).
+//
+// El borrado de "Reseñas" usa el mismo servicio que "Gestionar reseñas"
+// (servicios/historialResenas.js): borra en la nube Y escribe `resetEn` en
+// la ficha de cada chat para que la app olvide su reseña y no quede una
+// reseña fantasma. NO borra chats.
 //
 // El borrado de "Uso" elimina el documento dashboard_config/uso_contadores
 // (las métricas actuales) y además limpia las colecciones VIEJAS
@@ -31,9 +39,12 @@ import {
 } from "firebase/firestore";
 import { useState } from "react";
 
+import ModalHistorialResenas from "../components/ModalHistorialResenas";
 import { COLECCIONES } from "../config";
 import { db } from "../firebase";
+import { borrarResenas } from "../servicios/historialResenas";
 import { borrarContadoresUso } from "../servicios/uso";
+import "../estilos-historial.css";
 
 const TANDA = 400;
 const PALABRA = "BORRAR";
@@ -61,8 +72,9 @@ const OPCIONES = [
   {
     id: "resenas",
     label: "Reseñas",
-    detalle: "Puntuaciones y comentarios de los usuarios",
-    coleccion: COLECCIONES.RESENAS,
+    detalle:
+      "Puntuaciones y comentarios de los usuarios. También se limpian en cada app y pueden reseñar de nuevo",
+    esResenas: true,
   },
   {
     id: "chats",
@@ -126,6 +138,7 @@ export default function Datos() {
   const [borrando, setBorrando] = useState(false);
   const [borrados, setBorrados] = useState(0);
   const [resultado, setResultado] = useState(null); // { ok, texto }
+  const [resenasAbierto, setResenasAbierto] = useState(false);
 
   const elegidas = OPCIONES.filter((o) => marcadas[o.id]);
   const puedeBorrar =
@@ -156,6 +169,10 @@ export default function Datos() {
           await borrarChats(sumar);
         } else if (opcion.esUso) {
           await borrarUso(sumar);
+        } else if (opcion.esResenas) {
+          // Borra en la nube y avisa a cada app (resetEn) para que no
+          // quede ninguna reseña fantasma
+          await borrarResenas({ alAvanzar: sumar });
         } else {
           await borrarColeccion(opcion.coleccion, sumar);
         }
@@ -183,74 +200,105 @@ export default function Datos() {
   };
 
   return (
-    <section className="panel peligro">
-      <div className="panel-head">
-        <h2>Restablecer datos</h2>
-
-        <button
-          type="button"
-          className="btn-claro"
-          onClick={marcarTodas}
-          disabled={borrando}
-        >
-          Marcar todo
-        </button>
-      </div>
-
-      <div className="peligro-cuerpo">
-        <p className="peligro-aviso">
-          Esto borra los datos de Firestore y <strong>no se puede deshacer</strong>.
-          Los contadores y tablas vuelven a cero.
-        </p>
-
-        <div className="datos-lista">
-          {OPCIONES.map((o) => (
-            <label key={o.id} className="datos-item">
-              <input
-                type="checkbox"
-                checked={Boolean(marcadas[o.id])}
-                onChange={() => alternar(o.id)}
-                disabled={borrando}
-              />
-              <span>
-                <strong>{o.label}</strong>
-                <small>{o.detalle}</small>
-              </span>
-            </label>
-          ))}
-        </div>
-
-        <div className="peligro-confirmar">
-          <label htmlFor="confirmar-borrado">
-            Escribe <strong>{PALABRA}</strong> para confirmar
-          </label>
-
-          <input
-            id="confirmar-borrado"
-            type="search"
-            value={confirmacion}
-            onChange={(e) => setConfirmacion(e.target.value)}
-            placeholder={PALABRA}
-            autoComplete="off"
-            disabled={borrando}
-          />
+    <>
+      {/* ---------------- GESTIONAR RESEÑAS ---------------- */}
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Reseñas</h2>
 
           <button
             type="button"
-            className="btn-peligro"
-            onClick={restablecer}
-            disabled={!puedeBorrar}
+            className="btn-claro"
+            onClick={() => setResenasAbierto(true)}
+            disabled={borrando}
           >
-            {borrando ? `Borrando… (${borrados})` : "Restablecer a cero"}
+            ★ Gestionar reseñas →
           </button>
         </div>
 
-        {resultado && (
-          <p className={resultado.ok ? "peligro-ok" : "error"}>
-            {resultado.texto}
+        <div className="peligro-cuerpo">
+          <p>
+            Borra puntuaciones y comentarios por antigüedad. Se limpian en la
+            nube y en el Store de cada app, y el usuario puede dejar una
+            reseña nueva. No borra chats.
           </p>
-        )}
-      </div>
-    </section>
+        </div>
+      </section>
+
+      {/* ---------------- RESTABLECER DATOS ---------------- */}
+      <section className="panel peligro">
+        <div className="panel-head">
+          <h2>Restablecer datos</h2>
+
+          <button
+            type="button"
+            className="btn-claro"
+            onClick={marcarTodas}
+            disabled={borrando}
+          >
+            Marcar todo
+          </button>
+        </div>
+
+        <div className="peligro-cuerpo">
+          <p className="peligro-aviso">
+            Esto borra los datos de Firestore y <strong>no se puede deshacer</strong>.
+            Los contadores y tablas vuelven a cero.
+          </p>
+
+          <div className="datos-lista">
+            {OPCIONES.map((o) => (
+              <label key={o.id} className="datos-item">
+                <input
+                  type="checkbox"
+                  checked={Boolean(marcadas[o.id])}
+                  onChange={() => alternar(o.id)}
+                  disabled={borrando}
+                />
+                <span>
+                  <strong>{o.label}</strong>
+                  <small>{o.detalle}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          <div className="peligro-confirmar">
+            <label htmlFor="confirmar-borrado">
+              Escribe <strong>{PALABRA}</strong> para confirmar
+            </label>
+
+            <input
+              id="confirmar-borrado"
+              type="search"
+              value={confirmacion}
+              onChange={(e) => setConfirmacion(e.target.value)}
+              placeholder={PALABRA}
+              autoComplete="off"
+              disabled={borrando}
+            />
+
+            <button
+              type="button"
+              className="btn-peligro"
+              onClick={restablecer}
+              disabled={!puedeBorrar}
+            >
+              {borrando ? `Borrando… (${borrados})` : "Restablecer a cero"}
+            </button>
+          </div>
+
+          {resultado && (
+            <p className={resultado.ok ? "peligro-ok" : "error"}>
+              {resultado.texto}
+            </p>
+          )}
+        </div>
+      </section>
+
+      {resenasAbierto && (
+        <ModalHistorialResenas onClose={() => setResenasAbierto(false)} />
+      )}
+    </>
   );
 }
