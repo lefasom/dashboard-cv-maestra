@@ -6,6 +6,10 @@
 //   onIrAlChat(chatId); acá se guarda ese chatId, se cambia a la pestaña
 //   Chat y Chat abre la conversación de esa persona (prop chatIdAbrir).
 //   Cuando Chat termina de abrirla, avisa con onChatAbierto y se limpia.
+//
+// MENSAJES PERSONALIZADOS
+//   Pestaña nueva (gestor): activa / desactiva los módulos y las demos de la
+//   app, y administra los mensajes guardados. Recibe `chats` como el resto.
 
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
@@ -16,6 +20,7 @@ import useChats from "./hooks/useChats";
 import Chat from "./secciones/Chat";
 import Datos from "./secciones/Datos";
 import Distribucion from "./secciones/Distribucion";
+import MensajesPersonalizados from "./secciones/MensajesPersonalizados";
 import Estadisticas from "./secciones/Estadisticas";
 import Onboarding from "./secciones/Onboarding";
 import Resenas from "./secciones/Resenas";
@@ -31,6 +36,11 @@ const SECCIONES = [
   { id: "onboarding", label: "Onboarding", componente: Onboarding },
   { id: "resenas", label: "Reseñas", componente: Resenas },
   { id: "chat", label: "Chat", componente: Chat },
+  {
+    id: "mensajes",
+    label: "Mensajes personalizados",
+    componente: MensajesPersonalizados,
+  },
   { id: "versiones", label: "Versiones", componente: Versiones },
   { id: "distribucion", label: "Distribución", componente: Distribucion },
   { id: "valoracion", label: "Valoración", componente: Valoracion },

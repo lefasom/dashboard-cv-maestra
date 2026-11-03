@@ -4,7 +4,16 @@
 //
 //   1) Qué chats: todos / respondidos / sin responder
 //   2) Qué mensajes: todo el historial, o los anteriores a 1, 2, 3, 4, 5, 6
-//      meses o 1 año
+//      meses o 1 año ("anteriores a 1 mes" = se borra lo más viejo que un mes;
+//      lo del último mes se conserva)
+//
+// Se borran los mensajes normales Y los personalizados (tarjeta, video,
+// encuestas…), porque son mensajes más de cada chat.
+//
+// Al terminar, se pone al día la lista "Enviados a varios chats" (pestaña
+// Mensajes personalizados): los envíos masivos que ya no existen en los
+// chats borrados se quitan de la lista, para no confundirse
+// (ver conciliarEnviosTrasHistorial en servicios/mensajesRicos.js).
 //
 // Las reseñas YA NO se gestionan acá: borrar chats no toca las reseñas.
 // Para borrar reseñas (y limpiar el Store de cada app) se usa
@@ -23,6 +32,7 @@ import {
   borrarHistorial,
   corteDe,
 } from "../servicios/historial";
+import { conciliarEnviosTrasHistorial } from "../servicios/mensajesRicos";
 import ModalReinicioDisenos from "./ModalReinicioDisenos";
 import ModalReinicioOnboarding from "./ModalReinicioOnboarding";
 
@@ -91,9 +101,28 @@ export default function ModalHistorial({ chats, onClose }) {
         alAvanzar: setBorrados,
       });
 
+      // Pone al día la lista de envíos masivos (Mensajes personalizados).
+      // Si falla, el borrado de los chats ya está hecho: solo se avisa.
+      let textoLista = "";
+
+      try {
+        const tocados = await conciliarEnviosTrasHistorial({
+          chatIds: elegidos.map((c) => c.id),
+          corteMs: opcionEdad.meses === 0 ? Infinity : corteDe(opcionEdad.meses),
+        });
+
+        if (tocados > 0) {
+          textoLista = ` Se actualizó la lista de enviados (${tocados}).`;
+        }
+      } catch (errLista) {
+        console.warn("[historial] No se pudo actualizar la lista de enviados:", errLista);
+        textoLista =
+          " No se pudo actualizar la lista de enviados: revisala en Mensajes personalizados.";
+      }
+
       setResultado({
         ok: true,
-        texto: `Listo: se borraron ${cuenta} documentos de ${elegidos.length} chats.`,
+        texto: `Listo: se borraron ${cuenta} documentos de ${elegidos.length} chats.${textoLista}`,
       });
       setConfirmacion("");
     } catch (err) {
@@ -214,8 +243,9 @@ export default function ModalHistorial({ chats, onClose }) {
               ? "de todo el historial"
               : `anteriores a hace ${opcionEdad.label}`}{" "}
             de <strong>{elegidos.length}</strong>{" "}
-            {elegidos.length === 1 ? "chat" : "chats"}. Las reseñas no se
-            tocan. Esto <strong>no se puede deshacer</strong>.
+            {elegidos.length === 1 ? "chat" : "chats"}, incluidos los mensajes
+            personalizados. Las reseñas no se tocan. Esto{" "}
+            <strong>no se puede deshacer</strong>.
           </p>
 
           <div className="peligro-confirmar">

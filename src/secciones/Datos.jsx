@@ -3,9 +3,17 @@
 //
 // Arriba: "Gestionar reseñas" (borrar puntuaciones y comentarios por
 // antigüedad, avisando a cada app para que limpie su Store de reseñas).
+// Es la ÚNICA forma de borrar reseñas: además de borrarlas en la nube,
+// reinicia la reseña de cada usuario en su app (resetEn) para que pueda
+// editar o enviar una nueva.
 //
 // Abajo: Restablecer datos: borra lo que elijas de Firestore
-// (vuelve a cero). Es IRREVERSIBLE.
+// (vuelve a cero). Es IRREVERSIBLE. NO incluye:
+//   - "Reseñas": se gestionan arriba (acá solo se borraban de la base y
+//     dejaban a los usuarios sin poder editar ni enviar una nueva).
+//   - "Chats": se gestionan desde la pestaña Chat > "Gestionar historial",
+//     que borra por estado y antigüedad e incluye los mensajes
+//     personalizados (y limpia la lista de "Enviados a varios chats").
 //
 // Seguridad:
 //   - no hay nada marcado de entrada
@@ -13,15 +21,6 @@
 //   - borra en tandas de 400 documentos y muestra el avance
 //
 // Requiere sesión iniciada y las reglas con `allow delete: if request.auth != null`.
-//
-// El borrado de "Chats" incluye los mensajes y los contadores diarios de
-// cada chat (Firestore no borra subcolecciones automáticamente desde el
-// cliente, por eso se recorren una por una).
-//
-// El borrado de "Reseñas" usa el mismo servicio que "Gestionar reseñas"
-// (servicios/historialResenas.js): borra en la nube Y escribe `resetEn` en
-// la ficha de cada chat para que la app olvide su reseña y no quede una
-// reseña fantasma. NO borra chats.
 //
 // El borrado de "Uso" elimina el documento dashboard_config/uso_contadores
 // (las métricas actuales) y además limpia las colecciones VIEJAS
@@ -31,7 +30,6 @@
 
 import {
   collection,
-  deleteDoc,
   getDocs,
   limit,
   query,
@@ -42,7 +40,6 @@ import { useState } from "react";
 import ModalHistorialResenas from "../components/ModalHistorialResenas";
 import { COLECCIONES } from "../config";
 import { db } from "../firebase";
-import { borrarResenas } from "../servicios/historialResenas";
 import { borrarContadoresUso } from "../servicios/uso";
 import "../estilos-historial.css";
 
@@ -69,20 +66,6 @@ const OPCIONES = [
     detalle: "Experiencia mejorada: áreas, etapas, extras y cambios",
     coleccion: COLECCIONES.ONBOARDING,
   },
-  {
-    id: "resenas",
-    label: "Reseñas",
-    detalle:
-      "Puntuaciones y comentarios de los usuarios. También se limpian en cada app y pueden reseñar de nuevo",
-    esResenas: true,
-  },
-  {
-    id: "chats",
-    label: "Chats",
-    detalle: "Todas las conversaciones, usuarios y contadores diarios",
-    coleccion: COLECCIONES.CHATS,
-    esChat: true,
-  },
 ];
 
 // Borra todos los documentos de una colección, de a TANDA por vez
@@ -102,25 +85,6 @@ const borrarColeccion = async (ruta, alAvanzar) => {
   }
 
   return total;
-};
-
-// Chats: primero sus mensajes y contadores, después la ficha
-const borrarChats = async (alAvanzar) => {
-  const chats = await getDocs(collection(db, COLECCIONES.CHATS));
-
-  for (const chat of chats.docs) {
-    await borrarColeccion(
-      `${COLECCIONES.CHATS}/${chat.id}/messages`,
-      alAvanzar
-    );
-    await borrarColeccion(
-      `${COLECCIONES.CHATS}/${chat.id}/limites`,
-      alAvanzar
-    );
-
-    await deleteDoc(chat.ref);
-    alAvanzar?.(1);
-  }
 };
 
 // Uso: el documento de contadores + las colecciones viejas (deprecadas)
@@ -165,14 +129,8 @@ export default function Datos() {
 
     try {
       for (const opcion of elegidas) {
-        if (opcion.esChat) {
-          await borrarChats(sumar);
-        } else if (opcion.esUso) {
+        if (opcion.esUso) {
           await borrarUso(sumar);
-        } else if (opcion.esResenas) {
-          // Borra en la nube y avisa a cada app (resetEn) para que no
-          // quede ninguna reseña fantasma
-          await borrarResenas({ alAvanzar: sumar });
         } else {
           await borrarColeccion(opcion.coleccion, sumar);
         }

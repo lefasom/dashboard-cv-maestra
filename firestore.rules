@@ -16,7 +16,27 @@ rules_version = '2';
 // `usoActualizarUsoOk`, `usoActualizarEditorOk`, `usoActualizarTamanosOk`,
 // `usoActualizarAjustesOk`, `usoActualizarIdiomasOk`): ya no se usan.
 //
-// CAMBIOS DE ESTA VERSIÓN:
+// CAMBIOS DE ESTA VERSIÓN (registro de envíos masivos):
+//   - Bloque nuevo `match /dashboard_mensajes_envios/{id}`: registro de los
+//     mensajes enviados a varios chats, para poder borrarlos de todos con un
+//     botón desde el dashboard. Solo el dashboard (con sesión); la app de
+//     React Native no lo lee ni lo escribe.
+//   - No se tocó ninguna otra regla. Los mensajes de un envío masivo llevan
+//     el mismo id (`env_<envioId>`) en cada chat; las reglas de
+//     chats/{id}/messages ya permiten crear con id propio y borrar.
+//
+// CAMBIOS DE LA VERSIÓN ANTERIOR (mensajes personalizados del chat):
+//   - chats/{id}/messages: el soporte (dashboard) puede agregar los campos
+//     `modo` y `rico` (tarjeta, video, encuestas, texto con formato). La
+//     función `ricoValido` (dentro de `match /chats/{userId}`) los valida.
+//     Los mensajes de la APP no pueden traerlos. Editar un mensaje no puede
+//     cambiar `modo` ni `rico`.
+//   - Bloque nuevo `match /dashboard_mensajes_plantillas/{id}`: mensajes
+//     guardados con nombre. Solo el dashboard (con sesión).
+//   - Bloque nuevo `match /dashboard_config/mensajes_modulos`: interruptores
+//     de módulos y demos. La app (sin sesión) lee; el dashboard escribe.
+//
+// CAMBIOS DE LAS VERSIONES MÁS VIEJAS:
 //   - USO AGREGADO: CREATE y UPDATE se rehicieron para gastar muchísimas
 //     menos expresiones. La versión anterior evaluaba las 25 claves en cada
 //     escritura (~1.000 expresiones, el límite de Firestore por pedido) y
@@ -496,6 +516,74 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // MENSAJES PERSONALIZADOS
+    //
+    //   dashboard_mensajes_plantillas/{id}   mensajes guardados con nombre
+    //       { nombre, modo, rico, actualizadoEn, creadoEn }
+    //       Solo el dashboard (con sesión).
+    //
+    //   dashboard_mensajes_envios/{envioId}  registro de envíos masivos
+    //       { nombre, modo, rico, chats: [ids], total, enviados, estado,
+    //         enviadoEn, creadoEn, eliminadoEn? }
+    //       Solo el dashboard (con sesión). La app NO lo usa.
+    //
+    //   dashboard_config/mensajes_modulos    interruptores
+    //       { modulos: { texto, tarjeta, video, encuesta_likes,
+    //                    encuesta_top }, mostrarDemo, actualizadoEn }
+    //       La app (sin sesión) lee por id; el dashboard escribe.
+    // ============================================================
+
+    match /dashboard_mensajes_plantillas/{id} {
+      allow read, delete: if request.auth != null;
+
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(
+            ['nombre', 'modo', 'rico', 'actualizadoEn', 'creadoEn'])
+        && request.resource.data.keys().hasAll(['nombre', 'modo', 'rico'])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() >= 1
+        && request.resource.data.nombre.size() <= 80
+        && request.resource.data.modo in ['texto', 'tarjeta', 'video', 'encuesta_likes', 'encuesta_top']
+        && request.resource.data.rico is map
+        && request.resource.data.rico.get('tipo', null) == request.resource.data.modo;
+    }
+
+    // Registro de mensajes enviados a VARIOS chats (para borrarlos de todos
+    // con un botón). Cada envío se anota ANTES de mandarse; al borrarlo de
+    // los chats el registro queda con estado "eliminado" hasta que se quita
+    // de la lista.
+    match /dashboard_mensajes_envios/{id} {
+      allow read, delete: if request.auth != null;
+
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(
+            ['nombre', 'modo', 'rico', 'chats', 'total', 'enviados',
+             'estado', 'enviadoEn', 'creadoEn', 'eliminadoEn'])
+        && request.resource.data.keys().hasAll(
+            ['nombre', 'modo', 'rico', 'chats', 'enviadoEn'])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() >= 1
+        && request.resource.data.nombre.size() <= 120
+        && request.resource.data.modo in ['texto', 'tarjeta', 'video', 'encuesta_likes', 'encuesta_top']
+        && request.resource.data.rico is map
+        && request.resource.data.rico.get('tipo', null) == request.resource.data.modo
+        && request.resource.data.chats is list
+        && request.resource.data.chats.size() <= 2000
+        && request.resource.data.get('estado', 'enviado') in ['enviando', 'enviado', 'parcial', 'eliminado'];
+    }
+
+    match /dashboard_config/mensajes_modulos {
+      allow get: if true;
+
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['modulos', 'mostrarDemo', 'actualizadoEn'])
+        && request.resource.data.get('modulos', {}) is map
+        && request.resource.data.get('mostrarDemo', true) is bool;
+
+      allow delete: if request.auth != null;
+    }
+
+    // ============================================================
     // CHAT DE AYUDA
     //
     //   chats/{userId}                  ficha del usuario (presencia)
@@ -528,6 +616,19 @@ service cloud.firestore {
         return request.resource.data.get('soporteLeyoHasta', null) == resource.data.get('soporteLeyoHasta', null)
           && request.resource.data.get('ultimaRespuestaEn', null) == resource.data.get('ultimaRespuestaEn', null)
           && request.resource.data.get('resetEn', null) == resource.data.get('resetEn', null);
+      }
+
+      // Mensaje personalizado (solo lo manda el dashboard): `modo` y `rico`
+      // van juntos, el modo es uno de los conocidos y rico.tipo == modo.
+      function ricoValido() {
+        let d = request.resource.data;
+        return (!('modo' in d) && !('rico' in d))
+          || ('modo' in d
+            && 'rico' in d
+            && d.modo in ['texto', 'tarjeta', 'video', 'encuesta_likes', 'encuesta_top']
+            && d.rico is map
+            && d.rico.get('tipo', null) == d.modo
+            && d.rico.size() <= 8);
       }
 
       // La app lee solo SU ficha (por id). Listar todos: solo el dashboard.
@@ -570,9 +671,10 @@ service cloud.firestore {
         // Tuyos (dashboard con sesión): sin límite diario
         allow create: if request.auth != null
           && request.resource.data.keys().hasOnly(
-              ['de', 'texto', 'enviadoEn', 'createdAt'])
+              ['de', 'texto', 'enviadoEn', 'createdAt', 'modo', 'rico'])
           && request.resource.data.keys().hasAll(
               ['de', 'texto', 'enviadoEn'])
+          && ricoValido()
           && request.resource.data.de == 'soporte'
           && request.resource.data.texto is string
           && request.resource.data.texto.size() > 0
@@ -586,7 +688,7 @@ service cloud.firestore {
           && resource.data.de == 'soporte'
           && request.resource.data.de == 'soporte'
           && request.resource.data.keys().hasOnly(
-              ['de', 'texto', 'enviadoEn', 'createdAt', 'editadoEn'])
+              ['de', 'texto', 'enviadoEn', 'createdAt', 'editadoEn', 'modo', 'rico'])
           && request.resource.data.keys().hasAll(
               ['de', 'texto', 'enviadoEn', 'editadoEn'])
           && request.resource.data.texto is string
@@ -594,6 +696,8 @@ service cloud.firestore {
           && request.resource.data.texto.size() <= 2000
           && request.resource.data.enviadoEn == resource.data.enviadoEn
           && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+          && request.resource.data.get('modo', null) == resource.data.get('modo', null)
+          && request.resource.data.get('rico', null) == resource.data.get('rico', null)
           && request.resource.data.editadoEn is number;
 
         allow delete: if request.auth != null;

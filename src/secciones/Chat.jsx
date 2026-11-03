@@ -45,6 +45,14 @@
 // Al abrir un chat se escribe chats/{id}.soporteLeyoHasta. Al responder se
 // escribe chats/{id}.ultimaRespuestaEn.
 //
+// MENSAJES PERSONALIZADOS (tarjeta, video, encuestas, texto con formato)
+//   - Arriba: "＋ Agregar mensaje" -> editor para enviar a TODOS los chats o a
+//     varios elegidos.
+//   - Junto al botón de enviar: "＋" -> lo mismo, pero solo para este chat.
+//   - Se guardan como un mensaje más (chats/{id}/messages) con `modo` y
+//     `rico`. Acá se dibujan con la misma vista previa que la app.
+//   - Los mensajes ricos no se pueden editar (se eliminan y se vuelven a enviar).
+//
 // Requiere sesión iniciada y las reglas de firestore.rules.
 
 import {
@@ -64,6 +72,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ModalDisenos from "../components/ModalDisenos";
 import ModalHistorial from "../components/ModalHistorial";
 import ModalResena from "../components/ModalResena";
+import MenuAgregarMensaje from "../components/MenuAgregarMensaje";
+import ModalMensajeRico from "../components/ModalMensajeRico";
+import { ContenidoMensaje } from "../components/PreviewMensaje";
 import {
   COLECCIONES,
   LIMITE_MENSAJES_CHAT,
@@ -71,7 +82,12 @@ import {
   LIMITE_TEXTO_RESPUESTA,
 } from "../config";
 import { db } from "../firebase";
+import { MODOS_MENSAJE } from "../config";
+import { completarRico } from "../servicios/mensajesRicos";
 import "../estilos-historial.css";
+import "../estilos-mensajes.css";
+
+const MODOS_VALIDOS = MODOS_MENSAJE.map((m) => m.id);
 
 // ------------------------------------------------------------
 // ESTILOS DEL MENÚ DE MENSAJES, DEL BOTÓN DE RESEÑA Y DEL NOMBRE
@@ -383,6 +399,10 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
   // Modal de diseños votados: null, "like" o "dislike"
   const [disenosAbierto, setDisenosAbierto] = useState(null);
 
+  // Editor de mensajes personalizados:
+  // null o { modo?, destino: "este" | "todos", pestana?: "crear" | "guardados" }
+  const [modalRico, setModalRico] = useState(null);
+
   // Nombre ficticio de cada chat, tomado de su reseña: { [chatId]: nombre }
   const [nombres, setNombres] = useState({});
 
@@ -493,6 +513,7 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
     setErrorMensaje(null);
     setResenaAbierta(false);
     setDisenosAbierto(null);
+    setModalRico((m) => (m?.destino === "este" ? null : m));
   }, [seleccionId]);
 
   // Conversación del chat abierto
@@ -523,6 +544,11 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
               id: d.id,
               de: data.de === "soporte" ? "soporte" : "usuario",
               texto: String(data.texto ?? ""),
+              // Mensaje personalizado (tarjeta, video, encuestas…)
+              rico:
+                data.rico && MODOS_VALIDOS.includes(data.rico.tipo)
+                  ? completarRico(data.rico)
+                  : null,
               enviadoEn: Number(data.enviadoEn) || 0,
               editadoEn: Number(data.editadoEn) || 0,
               pendiente: d.metadata.hasPendingWrites,
@@ -768,6 +794,25 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
         </p>
       )}
 
+      {/* ---------------- MENSAJES PERSONALIZADOS ---------------- */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: 10,
+        }}
+      >
+        <MenuAgregarMensaje
+          onElegir={(dato) =>
+            setModalRico({
+              destino: "todos",
+              modo: dato.modo,
+              pestana: dato.guardados ? "guardados" : "crear",
+            })
+          }
+        />
+      </div>
+
       {/* ---------------- TARJETAS ---------------- */}
       <div className="resumen">
         <div className="card">
@@ -992,7 +1037,7 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
                       <div
                         className={`burbuja ${m.de}${
                           m.pendiente || editando ? "" : " con-menu"
-                        }`}
+                        }${m.rico ? " rica" : ""}`}
                       >
                         {/* Tres puntitos */}
                         {!m.pendiente && !editando && (
@@ -1046,6 +1091,8 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
                               </button>
                             </div>
                           </div>
+                        ) : m.rico ? (
+                          <ContenidoMensaje rico={m.rico} />
                         ) : (
                           <p>{m.texto}</p>
                         )}
@@ -1096,6 +1143,17 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
               {errorEnvio && <p className="error chat-error">{errorEnvio}</p>}
 
               <div className="chat-barra">
+                <MenuAgregarMensaje
+                  variante="mas"
+                  onElegir={(dato) =>
+                    setModalRico({
+                      destino: "este",
+                      modo: dato.modo,
+                      pestana: dato.guardados ? "guardados" : "crear",
+                    })
+                  }
+                />
+
                 <textarea
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
@@ -1134,7 +1192,8 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
             role="menu"
             style={{ top: menu.top, left: menu.left }}
           >
-            {menu.de === "soporte" && (
+            {menu.de === "soporte" &&
+              !mensajes.find((x) => x.id === menu.id)?.rico && (
               <button
                 type="button"
                 role="menuitem"
@@ -1160,6 +1219,18 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
             </button>
           </div>
         </>
+      )}
+
+      {modalRico && (
+        <ModalMensajeRico
+          chats={lista}
+          chatActual={modalRico.destino === "este" ? seleccionado : null}
+          nombres={nombres}
+          modoInicial={modalRico.modo ?? "texto"}
+          destinoInicial={modalRico.destino}
+          pestanaInicial={modalRico.pestana ?? "crear"}
+          onClose={() => setModalRico(null)}
+        />
       )}
 
       {historialAbierto && (
