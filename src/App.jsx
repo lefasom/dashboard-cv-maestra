@@ -1,22 +1,25 @@
+
 // src/App.jsx
-// Vite + React — Dashboard CV Master
+// Vite + React — CV Belgrano
 //
-// IR AL CHAT DESDE UNA RESEÑA
-//   Cada reseña tiene un botón "Ir al chat". Al tocarlo, Resenas llama a
-//   onIrAlChat(chatId); acá se guarda ese chatId, se cambia a la pestaña
-//   Chat y Chat abre la conversación de esa persona (prop chatIdAbrir).
-//   Cuando Chat termina de abrirla, avisa con onChatAbierto y se limpia.
+// RUTAS:
+//   /                  -> Sitio público (Landing Page)
+//   /administrador     -> Panel administrativo
 //
-// MENSAJES PERSONALIZADOS
-//   Pestaña nueva (gestor): activa / desactiva los módulos y las demos de la
-//   app, y administra los mensajes guardados. Recibe `chats` como el resto.
+// El administrador conserva Firebase Authentication
+// y todas las secciones existentes.
+//
+// No requiere react-router-dom.
 
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 
 import Login from "./components/Login";
+import LandingPage from "../LandingPage";
+
 import { auth } from "./firebase";
 import useChats from "./hooks/useChats";
+
 import Chat from "./secciones/Chat";
 import Datos from "./secciones/Datos";
 import Distribucion from "./secciones/Distribucion";
@@ -27,9 +30,25 @@ import Resenas from "./secciones/Resenas";
 import Uso from "./secciones/Uso";
 import Valoracion from "./secciones/Valoracion";
 import Versiones from "./secciones/Versiones";
+
 import "./estilos.css";
 
-// "Historial" (antes "Datos") va siempre al final
+// --------------------------------------------------
+// CONFIGURACIÓN DE RUTAS
+// --------------------------------------------------
+
+const RUTA_PUBLICA = "/";
+const RUTA_ADMIN = "/administrador";
+
+function obtenerRuta() {
+  const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+  return pathname.toLowerCase();
+}
+
+// --------------------------------------------------
+// DASHBOARD ADMINISTRATIVO
+// --------------------------------------------------
+
 const SECCIONES = [
   { id: "estadisticas", label: "Estadísticas", componente: Estadisticas },
   { id: "uso", label: "Uso", componente: Uso },
@@ -47,37 +66,43 @@ const SECCIONES = [
   { id: "historial", label: "Historial", componente: Datos },
 ];
 
-function Dashboard({ usuario }) {
+function Dashboard({ usuario, navegar }) {
   const [seccion, setSeccion] = useState("estadisticas");
-
-  // Chat que hay que abrir al llegar a la pestaña Chat (lo pide Reseñas)
   const [chatIdAbrir, setChatIdAbrir] = useState(null);
 
-  const Actual = SECCIONES.find((s) => s.id === seccion).componente;
+  const Actual =
+    SECCIONES.find((s) => s.id === seccion)?.componente ?? Estadisticas;
 
-  // La lista de chats vive acá para que la pestaña "Chat" muestre el
-  // globito de "sin responder" aunque estés en otra sección
   const chats = useChats();
   const sinResponder = chats.resumen.sinResponder;
 
-  // Desde una reseña: va a la pestaña Chat y abre el chat de ese usuario
   const irAlChat = useCallback((chatId) => {
     setChatIdAbrir(chatId);
     setSeccion("chat");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Chat ya abrió (o no encontró) el chat pedido
-  const alChatAbierto = useCallback(() => setChatIdAbrir(null), []);
+  const alChatAbierto = useCallback(() => {
+    setChatIdAbrir(null);
+  }, []);
 
   return (
     <div className="app">
       <header className="encabezado">
         <div className="encabezado-in">
-          <h1>Dash CV Master</h1>
+          <h1>Dashboard CV Belgrano</h1>
 
           <div className="usuario-caja">
+            <button
+              type="button"
+              className="btn-header"
+              onClick={() => navegar(RUTA_PUBLICA)}
+            >
+              Ver sitio web
+            </button>
+
             <span className="usuario">{usuario.email}</span>
+
             <button
               type="button"
               className="btn-header"
@@ -110,7 +135,6 @@ function Dashboard({ usuario }) {
         </nav>
 
         <main className="contenido">
-          {/* Las secciones que no usan estas props simplemente las ignoran */}
           <Actual
             chats={chats}
             onIrAlChat={irAlChat}
@@ -123,13 +147,74 @@ function Dashboard({ usuario }) {
   );
 }
 
+// --------------------------------------------------
+// APLICACIÓN PRINCIPAL / ROUTER
+// --------------------------------------------------
+
 export default function App() {
+  const [ruta, setRuta] = useState(obtenerRuta);
   const [usuario, setUsuario] = useState(undefined);
 
-  useEffect(() => onAuthStateChanged(auth, (u) => setUsuario(u)), []);
+  // Navegación interna sin recargar la página.
+  const navegar = useCallback((destino) => {
+    window.history.pushState({}, "", destino);
+    setRuta(obtenerRuta());
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
 
-  if (usuario === undefined) return <p className="cargando-app">Cargando…</p>;
-  if (!usuario) return <Login />;
+  // Detectar atrás / adelante del navegador.
+  useEffect(() => {
+    const manejarHistorial = () => {
+      setRuta(obtenerRuta());
+    };
 
-  return <Dashboard usuario={usuario} />;
+    window.addEventListener("popstate", manejarHistorial);
+
+    return () => {
+      window.removeEventListener("popstate", manejarHistorial);
+    };
+  }, []);
+
+  // Mantener Firebase Authentication.
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUsuario(u);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Cualquier ruta desconocida vuelve al sitio público.
+  useEffect(() => {
+    if (ruta !== RUTA_PUBLICA && ruta !== RUTA_ADMIN) {
+      window.history.replaceState({}, "", RUTA_PUBLICA);
+      setRuta(RUTA_PUBLICA);
+    }
+  }, [ruta]);
+
+  // ------------------------------------------------
+  // SITIO PÚBLICO
+  // ------------------------------------------------
+
+  if (ruta === RUTA_PUBLICA) {
+    return <LandingPage />;
+  }
+
+  // ------------------------------------------------
+  // ADMINISTRADOR
+  // ------------------------------------------------
+
+  if (ruta === RUTA_ADMIN) {
+    if (usuario === undefined) {
+      return <p className="cargando-app">Cargando administrador…</p>;
+    }
+
+    if (!usuario) {
+      return <Login />;
+    }
+
+    return <Dashboard usuario={usuario} navegar={navegar} />;
+  }
+
+  return null;
 }

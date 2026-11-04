@@ -4,14 +4,37 @@
 // formato): armado, validación, envío, registro de envíos masivos y guardado.
 //
 // CÓMO SE GUARDA UN MENSAJE
-//   chats/{id}/messages/{msgId} = {
-//     de: "soporte",
-//     texto: "<resumen corto>",   // lo piden las reglas; las APK viejas lo
-//                                  // muestran como texto simple
-//     enviadoEn, createdAt,
-//     modo: "tarjeta",            // = rico.tipo
-//     rico: { tipo: "tarjeta", imagen, texto }   // lo que dibuja la app
-//   }
+//
+//   A) Texto, tarjeta y video (van DENTRO del mensaje del chat):
+//      chats/{id}/messages/{msgId} = {
+//        de: "soporte",
+//        texto: "<resumen corto>",   // lo piden las reglas; las APK viejas
+//                                     // lo muestran como texto simple
+//        enviadoEn, createdAt,
+//        modo: "tarjeta",            // = rico.tipo
+//        rico: { tipo: "tarjeta", imagen, texto }   // lo que dibuja la app
+//      }
+//
+//   B) ENCUESTAS (me gusta y ranking): COMPARTIDAS entre todos los chats.
+//      El chat NO guarda la encuesta ni los votos: solo una referencia y la
+//      fecha/hora para que aparezca en el momento correcto de la sala.
+//      chats/{id}/messages/{msgId} = {
+//        de: "soporte",
+//        texto: "<resumen corto>",
+//        enviadoEn, createdAt,
+//        modo: "encuesta_top",       // o "encuesta_likes"
+//        refId: "<id en la tabla compartida>"
+//      }
+//      dashboard_mensajes_compartidos/{refId} = {
+//        nombre, texto, modo,
+//        rico: { tipo, pregunta, opciones? }   // SOLO la definición
+//        contadores: { ... },                  // acá viven los votos
+//        creadoEn, enviadoEn
+//      }
+//      contadores:
+//        encuesta_likes -> { me_gusta: n, no_me_gusta: n }
+//        encuesta_top   -> { a: n, b: n, c: n ... }  (ids de las opciones)
+//      La app suma 1 con increment(1) en UNA clave de `contadores`.
 //
 // ENVÍOS MASIVOS (a todos o a varios chats)
 //   - Todos los chats reciben el mensaje con el MISMO id: `env_<envioId>`.
@@ -19,9 +42,11 @@
 //       { nombre, modo, rico, chats: [ids], total, enviados, estado,
 //         enviadoEn, creadoEn, eliminadoEn? }
 //     estado: "enviando" | "enviado" | "parcial" | "eliminado"
+//   - Si es una encuesta, el id de la tabla compartida es el mismo envioId.
 //   - Para borrarlo de todos NO se lee nada: se borra `env_<envioId>` en cada
-//     chat de la lista (escrituras por lotes). El registro queda en la lista
-//     (marcado "eliminado") hasta que lo quités con "Quitar de la lista".
+//     chat de la lista (escrituras por lotes) y la encuesta compartida. El
+//     registro queda en la lista (marcado "eliminado") hasta que lo quités
+//     con "Quitar de la lista".
 //
 // FORMATOS DENTRO DE LOS TEXTOS (los entiende la app y la vista previa):
 //   *texto*          negrita
@@ -52,6 +77,7 @@ import {
   LIMITE_TEXTO_RICO,
   LOTE_BORRADO,
   LOTE_ENVIO,
+  MODOS_ENCUESTA,
 } from "../config";
 import { db } from "../firebase";
 
@@ -76,6 +102,9 @@ const entero = (v) => {
 };
 
 const esUrl = (u = "") => /^https?:\/\/\S+$/i.test(String(u).trim());
+
+// ¿Este modo vive en la tabla compartida?
+export const esEncuesta = (modo) => MODOS_ENCUESTA.includes(modo);
 
 // ------------------------------------------------------------
 // MENSAJE VACÍO POR MODO
@@ -236,6 +265,91 @@ export const resumenDe = (rico) => {
 };
 
 // ------------------------------------------------------------
+// ENCUESTAS COMPARTIDAS: definición, contadores y vista
+// ------------------------------------------------------------
+
+// Contadores con los que nace la encuesta. Si en el editor cargaste votos
+// iniciales (por ejemplo una demo con 24 y 2), se usan como punto de partida.
+//   likes -> { me_gusta, no_me_gusta }
+//   top   -> { a, b, c… }
+export const contadoresIniciales = (rico) => {
+  const r = limpiarRico(rico);
+
+  if (r.tipo === "encuesta_likes") {
+    return { me_gusta: r.votos[0], no_me_gusta: r.votos[1] };
+  }
+
+  if (r.tipo === "encuesta_top") {
+    const c = {};
+    r.opciones.forEach((o) => {
+      c[o.id] = o.votos;
+    });
+    return c;
+  }
+
+  return {};
+};
+
+// La encuesta SIN votos (los votos viven en `contadores`)
+export const definicionEncuesta = (rico) => {
+  const r = limpiarRico(rico);
+
+  if (r.tipo === "encuesta_likes") {
+    return { tipo: "encuesta_likes", pregunta: r.pregunta };
+  }
+
+  if (r.tipo === "encuesta_top") {
+    return {
+      tipo: "encuesta_top",
+      pregunta: r.pregunta,
+      opciones: r.opciones.map((o) => ({ id: o.id, texto: o.texto })),
+    };
+  }
+
+  return r;
+};
+
+// Arma, a partir de un documento de la tabla compartida, el MISMO objeto
+// `rico` que usaban las encuestas dentro del chat (con `votos`), así la vista
+// previa (PreviewMensaje / ContenidoMensaje) funciona sin cambios.
+// Devuelve null si el documento no existe.
+export const ricoConContadores = (compartido) => {
+  if (!compartido?.rico) return null;
+
+  const def = completarRico(compartido.rico);
+  const k = compartido.contadores ?? {};
+
+  if (def.tipo === "encuesta_likes") {
+    return { ...def, votos: [entero(k.me_gusta), entero(k.no_me_gusta)] };
+  }
+
+  if (def.tipo === "encuesta_top") {
+    return {
+      ...def,
+      opciones: (Array.isArray(def.opciones) ? def.opciones : []).map((o) => ({
+        ...o,
+        votos: entero(k[o.id]),
+      })),
+    };
+  }
+
+  return def;
+};
+
+// Pone todos los contadores de una encuesta compartida en 0
+export const reiniciarContadores = (compartido) => {
+  const c = {};
+  Object.keys(compartido?.contadores ?? {}).forEach((k) => {
+    c[k] = 0;
+  });
+
+  return updateDoc(
+    doc(db, COLECCIONES.MENSAJES_COMPARTIDOS, compartido.id),
+    { contadores: c }
+  );
+};
+
+// ------------------------------------------------------------
 // ENVÍO
 // ------------------------------------------------------------
 
@@ -252,6 +366,9 @@ export const idMensajeEnvio = (envioId) => `env_${envioId}`;
 //   masivos y se puede borrar de todos los chats con un botón.
 // nombre: título que se ve en la lista de envíos (opcional).
 // Devuelve la cantidad de chats a los que se envió.
+//
+// Si el mensaje es una ENCUESTA: se crea UNA vez en la tabla compartida
+// (id = envioId) y cada chat recibe solo la referencia `refId` + la fecha.
 export async function enviarRico({
   destinos,
   rico,
@@ -269,6 +386,7 @@ export async function enviarRico({
   const envioId = nuevoEnvioId();
   const msgId = idMensajeEnvio(envioId);
   const registroRef = doc(db, COLECCIONES.MENSAJES_ENVIOS, envioId);
+  const encuesta = esEncuesta(limpio.tipo);
 
   // El registro se crea PRIMERO: si un lote falla a la mitad, igual queda
   // anotado a qué chats se intentó enviar y se puede borrar todo.
@@ -291,6 +409,20 @@ export async function enviarRico({
   let enviados = 0;
 
   try {
+    // Encuesta: se crea en la tabla compartida ANTES de los mensajes, así
+    // cuando el mensaje llega al chat la encuesta ya existe.
+    if (encuesta) {
+      await setDoc(doc(db, COLECCIONES.MENSAJES_COMPARTIDOS, envioId), {
+        nombre: unaLinea(nombre || texto, 100) || "Encuesta",
+        texto,
+        modo: limpio.tipo,
+        rico: definicionEncuesta(limpio),
+        contadores: contadoresIniciales(limpio),
+        creadoEn: ahora,
+        enviadoEn: ahora,
+      });
+    }
+
     for (let i = 0; i < destinos.length; i += tamano) {
       const lote = destinos.slice(i, i + tamano);
       const batch = writeBatch(db);
@@ -302,14 +434,19 @@ export async function enviarRico({
           ? doc(fichaRef, "messages", msgId)
           : doc(collection(fichaRef, "messages"));
 
-        batch.set(mensajeRef, {
+        const base = {
           de: "soporte",
           texto,
           enviadoEn: ahora,
           createdAt: serverTimestamp(),
           modo: limpio.tipo,
-          rico: limpio,
-        });
+        };
+
+        // Encuesta: solo la referencia. Los demás modos: el mensaje completo.
+        batch.set(
+          mensajeRef,
+          encuesta ? { ...base, refId: envioId } : { ...base, rico: limpio }
+        );
 
         if (marcarRespondido) {
           batch.update(fichaRef, {
@@ -343,6 +480,7 @@ export async function enviarRico({
 }
 
 // Borra el mensaje de TODOS los chats de un envío masivo, sin leer nada.
+// Si era una encuesta, también borra la encuesta compartida (con sus votos).
 // El registro queda en la lista, marcado como eliminado.
 // Se puede repetir sin problema si algo falla a la mitad.
 export async function borrarEnvio(envio) {
@@ -358,6 +496,14 @@ export async function borrarEnvio(envio) {
 
     // eslint-disable-next-line no-await-in-loop
     await batch.commit();
+  }
+
+  if (esEncuesta(envio?.modo)) {
+    await deleteDoc(
+      doc(db, COLECCIONES.MENSAJES_COMPARTIDOS, envio.id)
+    ).catch((e) =>
+      console.warn("[mensajes] No se pudo borrar la encuesta compartida:", e)
+    );
   }
 
   await updateDoc(doc(db, COLECCIONES.MENSAJES_ENVIOS, envio.id), {
@@ -377,10 +523,11 @@ export const quitarRegistroEnvio = (id) =>
 // Acá se pone al día la lista de envíos masivos para que no queden envíos
 // que ya no existen:
 //   - si el envío era más viejo que el corte (corteMs) y TODOS sus chats
-//     estaban entre los borrados  -> se quita el registro de la lista.
+//     estaban entre los borrados  -> se quita el registro de la lista (y, si
+//     era una encuesta, también la encuesta compartida).
 //   - si solo algunos de sus chats estaban entre los borrados -> el registro
 //     queda con los chats que todavía lo tienen (así "Eliminar de todos"
-//     sigue siendo correcto).
+//     sigue siendo correcto y la encuesta compartida sigue viva).
 // chatIds: ids de los chats a los que se les borró el historial.
 // corteMs: se borró lo anterior a este momento (Infinity = todo el historial).
 // Los envíos ya marcados como "eliminado" no se tocan.
@@ -415,6 +562,11 @@ export async function conciliarEnviosTrasHistorial({ chatIds, corteMs }) {
 
     if (restantes.length === 0) {
       batch.delete(d.ref);
+
+      // Ya no queda ningún chat con la encuesta: se borra la compartida
+      if (esEncuesta(e.modo)) {
+        batch.delete(doc(db, COLECCIONES.MENSAJES_COMPARTIDOS, d.id));
+      }
     } else {
       batch.update(d.ref, {
         chats: restantes,

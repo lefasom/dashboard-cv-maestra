@@ -38,9 +38,9 @@
 //   - Eliminar: cualquier mensaje (tuyo o del usuario). Pide confirmación.
 //     Al borrar se recalcula la ficha del chat (último mensaje y si quedó
 //     sin responder).
-//   - Editar: solo los TUYOS. Se edita en el mismo globo y queda marcado
-//     como "editado". Requiere la regla de update de mensajes en
-//     firestore.rules (ver el aviso que aparece si falta).
+//   - Editar: solo los TUYOS de texto simple. Se edita en el mismo globo y
+//     queda marcado como "editado". Requiere la regla de update de mensajes
+//     en firestore.rules (ver el aviso que aparece si falta).
 //
 // Al abrir un chat se escribe chats/{id}.soporteLeyoHasta. Al responder se
 // escribe chats/{id}.ultimaRespuestaEn.
@@ -49,9 +49,19 @@
 //   - Arriba: "＋ Agregar mensaje" -> editor para enviar a TODOS los chats o a
 //     varios elegidos.
 //   - Junto al botón de enviar: "＋" -> lo mismo, pero solo para este chat.
-//   - Se guardan como un mensaje más (chats/{id}/messages) con `modo` y
-//     `rico`. Acá se dibujan con la misma vista previa que la app.
-//   - Los mensajes ricos no se pueden editar (se eliminan y se vuelven a enviar).
+//   - Texto, tarjeta y video se guardan DENTRO del mensaje (chats/{id}/
+//     messages) con `modo` y `rico`.
+//   - Las ENCUESTAS (me gusta y ranking) son COMPARTIDAS: el mensaje del chat
+//     solo trae `modo` + `refId` (y la fecha/hora, que decide dónde aparece
+//     en la sala). La encuesta y sus votos viven en la tabla
+//     dashboard_mensajes_compartidos; acá se escuchan con
+//     useMensajesCompartidos y se dibujan con la misma vista previa que la
+//     app, con los votos de TODOS los usuarios.
+//   - Los mensajes personalizados no se pueden editar (se eliminan y se
+//     vuelven a enviar). Si eliminás una encuesta enviada a UN solo chat, se
+//     borra también de la tabla compartida; si fue un envío masivo (id
+//     env_…), la encuesta compartida queda para los demás chats (para
+//     quitarla de todos usá "Eliminar de todos" en Mensajes).
 //
 // Requiere sesión iniciada y las reglas de firestore.rules.
 
@@ -80,10 +90,12 @@ import {
   LIMITE_MENSAJES_CHAT,
   LIMITE_RESENAS,
   LIMITE_TEXTO_RESPUESTA,
+  MODOS_ENCUESTA,
+  MODOS_MENSAJE,
 } from "../config";
 import { db } from "../firebase";
-import { MODOS_MENSAJE } from "../config";
-import { completarRico } from "../servicios/mensajesRicos";
+import useMensajesCompartidos from "../hooks/useMensajesCompartidos";
+import { completarRico, ricoConContadores } from "../servicios/mensajesRicos";
 import "../estilos-historial.css";
 import "../estilos-mensajes.css";
 
@@ -277,6 +289,13 @@ const ESTILOS_MENU = `
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.msg-encuesta-nota {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.75;
 }
 `;
 
@@ -540,15 +559,27 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
         setMensajes(
           snapshot.docs.map((d) => {
             const data = d.data();
+
+            // Encuesta compartida: el mensaje solo trae la referencia
+            const refId =
+              typeof data.refId === "string" &&
+              data.refId &&
+              MODOS_ENCUESTA.includes(data.modo)
+                ? data.refId
+                : "";
+
             return {
               id: d.id,
               de: data.de === "soporte" ? "soporte" : "usuario",
               texto: String(data.texto ?? ""),
-              // Mensaje personalizado (tarjeta, video, encuestas…)
+              // Mensaje personalizado dentro del mensaje (texto, tarjeta,
+              // video y encuestas VIEJAS que todavía llevan su `rico`)
               rico:
                 data.rico && MODOS_VALIDOS.includes(data.rico.tipo)
                   ? completarRico(data.rico)
                   : null,
+              // Encuesta compartida (se resuelve más abajo)
+              refId,
               enviadoEn: Number(data.enviadoEn) || 0,
               editadoEn: Number(data.editadoEn) || 0,
               pendiente: d.metadata.hasPendingWrites,
@@ -563,6 +594,35 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
       }
     );
   }, [seleccionId]);
+
+  // Encuestas compartidas del chat abierto (con sus votos en vivo)
+  const idsCompartidos = useMemo(
+    () => [...new Set(mensajes.filter((m) => m.refId).map((m) => m.refId))],
+    [mensajes]
+  );
+
+  const compartidos = useMensajesCompartidos(idsCompartidos);
+
+  // Mensajes listos para dibujar: las encuestas con referencia reciben su
+  // `rico` armado con los contadores de la tabla compartida.
+  //   compartido === undefined -> cargando (se ve el resumen)
+  //   compartido === null      -> la encuesta ya no existe
+  const mensajesVista = useMemo(
+    () =>
+      mensajes.map((m) => {
+        if (!m.refId) return { ...m, esRico: !!m.rico, encuestaFaltante: false };
+
+        const compartido = compartidos[m.refId];
+
+        return {
+          ...m,
+          rico: ricoConContadores(compartido),
+          esRico: true,
+          encuestaFaltante: compartido === null,
+        };
+      }),
+    [mensajes, compartidos]
+  );
 
   // Baja solo hasta el último mensaje cuando llegan mensajes nuevos
   // (no cuando editás o borrás uno del medio)
@@ -591,7 +651,7 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
     const resultado = [];
     let diaAnterior = "";
 
-    mensajes.forEach((m) => {
+    mensajesVista.forEach((m) => {
       const dia = diaClave(m.enviadoEn);
 
       if (dia !== diaAnterior) {
@@ -607,7 +667,7 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
     });
 
     return resultado;
-  }, [mensajes]);
+  }, [mensajesVista]);
 
   // Enviar respuesta: crea el mensaje y marca el chat como respondido, todo
   // en una sola operación.
@@ -743,6 +803,9 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
 
   // Borra el mensaje y deja la ficha del chat coherente con lo que queda
   // (último mensaje del usuario, si está respondido), en una sola operación.
+  // Si era una encuesta enviada a UN solo chat (id propio, no `env_…`), se
+  // borra también de la tabla compartida. Las de envío masivo se quedan
+  // porque otros chats las siguen usando.
   const eliminar = async (m) => {
     if (!seleccionId || trabajando) return;
 
@@ -757,6 +820,10 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
 
       batch.delete(doc(fichaRef, "messages", m.id));
       batch.update(fichaRef, fichaSegunMensajes(restantes));
+
+      if (m.refId && !m.id.startsWith("env_")) {
+        batch.delete(doc(db, COLECCIONES.MENSAJES_COMPARTIDOS, m.refId));
+      }
 
       await batch.commit();
 
@@ -773,6 +840,11 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
       setTrabajando(false);
     }
   };
+
+  // Mensaje del menú abierto (ya con encuesta resuelta)
+  const mensajeDelMenu = menu
+    ? mensajesVista.find((x) => x.id === menu.id) ?? null
+    : null;
 
   return (
     <>
@@ -1094,7 +1166,15 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
                         ) : m.rico ? (
                           <ContenidoMensaje rico={m.rico} />
                         ) : (
-                          <p>{m.texto}</p>
+                          <>
+                            <p>{m.texto}</p>
+                            {m.encuestaFaltante && (
+                              <p className="msg-encuesta-nota">
+                                Esta encuesta ya no existe en la tabla
+                                compartida.
+                              </p>
+                            )}
+                          </>
                         )}
 
                         {confirmando && (
@@ -1192,15 +1272,11 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
             role="menu"
             style={{ top: menu.top, left: menu.left }}
           >
-            {menu.de === "soporte" &&
-              !mensajes.find((x) => x.id === menu.id)?.rico && (
+            {menu.de === "soporte" && mensajeDelMenu && !mensajeDelMenu.esRico && (
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => {
-                  const m = mensajes.find((x) => x.id === menu.id);
-                  if (m) empezarEdicion(m);
-                }}
+                onClick={() => empezarEdicion(mensajeDelMenu)}
               >
                 ✎ Editar
               </button>
@@ -1211,8 +1287,7 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
               role="menuitem"
               className="peligro-op"
               onClick={() => {
-                const m = mensajes.find((x) => x.id === menu.id);
-                if (m) pedirEliminar(m);
+                if (mensajeDelMenu) pedirEliminar(mensajeDelMenu);
               }}
             >
               🗑 Eliminar

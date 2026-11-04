@@ -18,6 +18,12 @@ export const COLECCIONES = {
   // Registro de mensajes enviados a VARIOS chats (para poder borrarlos de
   // todos con un botón). Solo lo usa el dashboard; la app no lo lee.
   MENSAJES_ENVIOS: "dashboard_mensajes_envios",
+  // TABLA COMPARTIDA de las ENCUESTAS (me gusta / ranking).
+  // Cada encuesta enviada vive acá UNA sola vez, con sus contadores. El
+  // mensaje de cada chat solo guarda el id (refId) y la fecha/hora. La app
+  // lee la encuesta por id y suma votos en los contadores; así el voto es
+  // de todos y no de cada chat.
+  MENSAJES_COMPARTIDOS: "dashboard_mensajes_compartidos",
 };
 
 // Documentos dentro de dashboard_config:
@@ -66,6 +72,8 @@ export const LIMITE_TEXTO_RESPUESTA = 2000;
 // Mensajes personalizados (tarjeta, video, encuestas...)
 // - MODOS_MENSAJE: los modos disponibles. El id es el mismo que usa la app
 //   (campo `modo` del mensaje y `rico.tipo`).
+// - MODOS_ENCUESTA: los modos que viven en la tabla compartida (el chat solo
+//   guarda la referencia `refId`). Los demás modos van dentro del mensaje.
 // - MODULOS_POR_DEFECTO: 1 = se muestra en la app, 0 = se oculta.
 // - LIMITE_TEXTO_RICO: largo máximo de cada texto con formato.
 // - LIMITE_PLANTILLAS: cuántos mensajes guardados se traen.
@@ -96,15 +104,17 @@ export const MODOS_MENSAJE = [
     id: "encuesta_likes",
     etiqueta: "Encuesta 👍 / 👎",
     icono: "👍",
-    ayuda: "Pregunta con Me gusta / No me gusta.",
+    ayuda: "Pregunta con Me gusta / No me gusta (compartida entre todos los chats).",
   },
   {
     id: "encuesta_top",
     etiqueta: "Encuesta ranking",
     icono: "🏆",
-    ayuda: "Pregunta con varias opciones que se ordenan por votos.",
+    ayuda: "Pregunta con varias opciones que se ordenan por votos (compartida entre todos los chats).",
   },
 ];
+
+export const MODOS_ENCUESTA = ["encuesta_likes", "encuesta_top"];
 
 export const MODULOS_POR_DEFECTO = {
   texto: 1,
