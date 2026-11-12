@@ -37,7 +37,6 @@ import {
 } from "firebase/firestore";
 import { useState } from "react";
 
-import ModalHistorialResenas from "../components/ModalHistorialResenas";
 import { COLECCIONES } from "../config";
 import { db } from "../firebase";
 import { borrarContadoresUso } from "../servicios/uso";
@@ -102,7 +101,6 @@ export default function Datos() {
   const [borrando, setBorrando] = useState(false);
   const [borrados, setBorrados] = useState(0);
   const [resultado, setResultado] = useState(null); // { ok, texto }
-  const [resenasAbierto, setResenasAbierto] = useState(false);
 
   const elegidas = OPCIONES.filter((o) => marcadas[o.id]);
   const puedeBorrar =
@@ -159,30 +157,6 @@ export default function Datos() {
 
   return (
     <>
-      {/* ---------------- GESTIONAR RESEÑAS ---------------- */}
-      <section className="panel">
-        <div className="panel-head">
-          <h2>Reseñas</h2>
-
-          <button
-            type="button"
-            className="btn-claro"
-            onClick={() => setResenasAbierto(true)}
-            disabled={borrando}
-          >
-            ★ Gestionar reseñas →
-          </button>
-        </div>
-
-        <div className="peligro-cuerpo">
-          <p>
-            Borra puntuaciones y comentarios por antigüedad. Se limpian en la
-            nube y en el Store de cada app, y el usuario puede dejar una
-            reseña nueva. No borra chats.
-          </p>
-        </div>
-      </section>
-
       {/* ---------------- RESTABLECER DATOS ---------------- */}
       <section className="panel peligro">
         <div className="panel-head">
@@ -254,9 +228,6 @@ export default function Datos() {
         </div>
       </section>
 
-      {resenasAbierto && (
-        <ModalHistorialResenas onClose={() => setResenasAbierto(false)} />
-      )}
     </>
   );
 }

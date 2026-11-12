@@ -2,8 +2,14 @@
 //
 // Campos de cada modo de mensaje. Recibe el objeto `rico` y avisa cada
 // cambio con onChange(nuevoRico).
+//
+// TRILINGÜE: cada texto visible se escribe en Español, Inglés y Portugués.
+// El español va en el campo de siempre (rico.texto, rico.pregunta…); inglés
+// y portugués van en rico.idioma.en / rico.idioma.pt (ver mensajesRicos.js).
+// La app muestra el idioma de Ajustes y, si está vacío, el español.
 
 import CampoFormato from "./CampoFormato";
+import { IDIOMAS, leerTraduccion, ponerTraduccion } from "../servicios/mensajesRicos";
 import "../estilos-mensajes.css";
 
 const MAX_OPCIONES = 6;
@@ -11,16 +17,73 @@ const MAX_OPCIONES = 6;
 export default function FormularioMensaje({ rico, onChange }) {
   const set = (campo, valor) => onChange({ ...rico, [campo]: valor });
 
+  // Valor y setter de un campo en un idioma ("es" = campo base)
+  const valorEn = (lang, campo) =>
+    lang === "es" ? rico[campo] ?? "" : leerTraduccion(rico, lang, campo) ?? "";
+  const setEn = (lang, campo, valor) =>
+    lang === "es"
+      ? set(campo, valor)
+      : onChange(ponerTraduccion(rico, lang, campo, valor));
+
+  // Repite un campo de texto 3 veces, uno por idioma, con rótulo claro
+  const tri = (etiqueta, campo, render) => (
+    <div className="mr-trilingue">
+      {IDIOMAS.map(({ id, nombre, bandera }) =>
+        render({
+          key: id,
+          etiqueta: `${etiqueta} · ${bandera} ${nombre}${
+            id === "es" ? "" : " (si queda vacío se muestra el español)"
+          }`,
+          value: valorEn(id, campo),
+          onChange: (v) => setEn(id, campo, v),
+        })
+      )}
+    </div>
+  );
+
+  const textarea = (rows, maxLength) => (p) => (
+    <label className="mr-campo" key={p.key}>
+      <span className="mr-campo-etiqueta">{p.etiqueta}</span>
+      <textarea
+        className="mr-textarea"
+        rows={rows}
+        value={p.value}
+        onChange={(e) => p.onChange(e.target.value)}
+        maxLength={maxLength}
+      />
+    </label>
+  );
+
+  const input = (maxLength) => (p) => (
+    <label className="mr-campo" key={p.key}>
+      <span className="mr-campo-etiqueta">{p.etiqueta}</span>
+      <input
+        type="text"
+        className="mr-input"
+        value={p.value}
+        onChange={(e) => p.onChange(e.target.value)}
+        maxLength={maxLength}
+      />
+    </label>
+  );
+
+  const formato = (rows, placeholder) => (p) => (
+    <CampoFormato
+      key={p.key}
+      etiqueta={p.etiqueta}
+      value={p.value}
+      onChange={p.onChange}
+      rows={rows}
+      placeholder={placeholder}
+    />
+  );
+
   switch (rico.tipo) {
     case "texto":
-      return (
-        <CampoFormato
-          etiqueta="Texto del mensaje"
-          value={rico.texto ?? ""}
-          onChange={(v) => set("texto", v)}
-          rows={6}
-          placeholder="Escribí el mensaje. Con Enter hacés un salto de línea."
-        />
+      return tri(
+        "Texto del mensaje",
+        "texto",
+        formato(6, "Escribí el mensaje. Con Enter hacés un salto de línea.")
       );
 
     case "tarjeta":
@@ -37,13 +100,11 @@ export default function FormularioMensaje({ rico, onChange }) {
             />
           </label>
 
-          <CampoFormato
-            etiqueta="Texto debajo de la imagen (opcional)"
-            value={rico.texto ?? ""}
-            onChange={(v) => set("texto", v)}
-            rows={7}
-            placeholder="Título, descripción, llamado a la acción…"
-          />
+          {tri(
+            "Texto debajo de la imagen (opcional)",
+            "texto",
+            formato(7, "Título, descripción, llamado a la acción…")
+          )}
         </>
       );
 
@@ -65,27 +126,9 @@ export default function FormularioMensaje({ rico, onChange }) {
             </small>
           </label>
 
-          <label className="mr-campo">
-            <span className="mr-campo-etiqueta">Título (opcional)</span>
-            <input
-              type="text"
-              className="mr-input"
-              value={rico.titulo ?? ""}
-              onChange={(e) => set("titulo", e.target.value)}
-              maxLength={150}
-            />
-          </label>
+          {tri("Título (opcional)", "titulo", input(150))}
 
-          <label className="mr-campo">
-            <span className="mr-campo-etiqueta">Descripción (opcional)</span>
-            <textarea
-              className="mr-textarea"
-              rows={3}
-              value={rico.descripcion ?? ""}
-              onChange={(e) => set("descripcion", e.target.value)}
-              maxLength={400}
-            />
-          </label>
+          {tri("Descripción (opcional)", "descripcion", textarea(3, 400))}
         </>
       );
 
@@ -99,13 +142,7 @@ export default function FormularioMensaje({ rico, onChange }) {
 
       return (
         <>
-          <CampoFormato
-            etiqueta="Pregunta"
-            value={rico.pregunta ?? ""}
-            onChange={(val) => set("pregunta", val)}
-            rows={3}
-            placeholder="¿Te resulta fácil crear y personalizar tu currículum?"
-          />
+          {tri("Pregunta", "pregunta", formato(3, "¿Te resulta fácil crear y personalizar tu currículum?"))}
 
           <div className="mr-dos">
             <label className="mr-campo">
@@ -149,21 +186,31 @@ export default function FormularioMensaje({ rico, onChange }) {
           { id: String.fromCharCode(97 + opciones.length), texto: "", votos: 0 },
         ]);
 
-      const quitar = (i) =>
-        set(
-          "opciones",
-          opciones.filter((_, n) => n !== i)
-        );
+      // Al quitar una opción también se quita su traducción
+      const quitar = (i) => {
+        let nuevo = { ...rico, opciones: opciones.filter((_, n) => n !== i) };
+        IDIOMAS.filter((l) => l.id !== "es").forEach(({ id }) => {
+          const t = leerTraduccion(rico, id, "opciones");
+          if (Array.isArray(t))
+            nuevo = ponerTraduccion(nuevo, id, "opciones", t.filter((_, n) => n !== i));
+        });
+        onChange(nuevo);
+      };
+
+      const opcionEn = (lang, i) => {
+        const t = leerTraduccion(rico, lang, "opciones");
+        return Array.isArray(t) ? t[i] ?? "" : "";
+      };
+      const setOpcionEn = (lang, i, valor) => {
+        const t = leerTraduccion(rico, lang, "opciones");
+        const arr = opciones.map((_, n) => (Array.isArray(t) ? t[n] ?? "" : ""));
+        arr[i] = valor;
+        onChange(ponerTraduccion(rico, lang, "opciones", arr));
+      };
 
       return (
         <>
-          <CampoFormato
-            etiqueta="Pregunta"
-            value={rico.pregunta ?? ""}
-            onChange={(val) => set("pregunta", val)}
-            rows={3}
-            placeholder="¿Qué considerás más importante en un buen currículum?"
-          />
+          {tri("Pregunta", "pregunta", formato(3, "¿Qué considerás más importante en un buen currículum?"))}
 
           <div className="mr-campo">
             <span className="mr-campo-etiqueta">
@@ -174,14 +221,24 @@ export default function FormularioMensaje({ rico, onChange }) {
               <div className="mr-opcion-fila" key={i}>
                 <span className="mr-opcion-num">{i + 1}</span>
 
-                <input
-                  type="text"
-                  className="mr-input"
-                  value={o.texto ?? ""}
-                  onChange={(e) => cambiar(i, "texto", e.target.value)}
-                  placeholder={`Opción ${i + 1}`}
-                  maxLength={100}
-                />
+                <div className="mr-opcion-idiomas">
+                  {IDIOMAS.map(({ id, nombre, bandera }) => (
+                    <input
+                      key={id}
+                      type="text"
+                      className="mr-input"
+                      value={id === "es" ? o.texto ?? "" : opcionEn(id, i)}
+                      onChange={(e) =>
+                        id === "es"
+                          ? cambiar(i, "texto", e.target.value)
+                          : setOpcionEn(id, i, e.target.value)
+                      }
+                      placeholder={`Opción ${i + 1} · ${bandera} ${nombre}`}
+                      aria-label={`Opción ${i + 1} en ${nombre}`}
+                      maxLength={100}
+                    />
+                  ))}
+                </div>
 
                 <input
                   type="number"

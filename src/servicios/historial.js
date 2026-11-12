@@ -10,12 +10,8 @@
 //   3) Recalcula la ficha (último mensaje, última respuesta) con lo que
 //      quedó. La ficha NO se borra: así el chat conserva su número.
 //
-// IMPORTANTE: este borrado NO toca las reseñas. Las reseñas se gestionan
-// aparte, desde la pestaña "Historial" (ver servicios/historialResenas.js),
-// y allí se avisa a las apps para que limpien su Store.
-//
 // Este archivo también exporta OPCIONES_EDAD y corteDe, que usan los dos
-// modales (chats y reseñas).
+// modales.
 //
 // Requiere sesión iniciada y las reglas nuevas de firestore.rules.
 

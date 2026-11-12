@@ -21,7 +21,7 @@
 // Props:
 //   chats            lista de useChats (para elegir destinos)
 //   chatActual       chat abierto en el Chat (o null)
-//   nombres          { [chatId]: nombre } (de useNombresChats)
+//   nombres          { [chatId]: nombre } (opcional)
 //   modoInicial      "texto" | "tarjeta" | "video" | "encuesta_likes" | "encuesta_top"
 //   destinoInicial   "este" | "todos" | "elegir"
 //   plantillaInicial { id, nombre, rico } para abrir un guardado

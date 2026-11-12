@@ -8,7 +8,6 @@ export const COLECCIONES = {
   PERFILES: "dashboard_profiles",
   // DEPRECADA: igual que PERFILES (eventos viejos de uso/interacciones).
   USO: "dashboard_interactions",
-  RESENAS: "dashboard_reviews",
   DISENOS: "dashboard_design_feedback", // "¿Te gustó el diseño?": me gusta / no me gusta
   CONFIG: "dashboard_config", // documentos de configuración (ver abajo)
   CHATS: "chats", // chat de ayuda: chats/{userId}/messages
@@ -49,9 +48,6 @@ export const DOC_MENSAJES_MODULOS = "mensajes_modulos";
 // OJO: todo se calcula sobre los N eventos más recientes. Si hay más, los
 // contadores pueden BAJAR en vez de crecer (EstadoCarga muestra un aviso).
 export const LIMITE_EVENTOS = 5000;
-
-// Cantidad máxima de reseñas que se traen de Firestore (las más nuevas primero)
-export const LIMITE_RESENAS = 500;
 
 // (Ya no se usa en Valoración: ahora lee los contadores. Se deja por si otra
 // parte lo importa.)
@@ -138,9 +134,6 @@ export const TIPO_COLECCION = "plantilla_biblioteca"; // se bajó un diseño de 
 export const ONB_COMPLETADO = "onboarding_completado";
 export const ONB_ADMIN = "onboarding_admin_uso"; // uso del Admin y de cada botón Editar
 // (onboarding_editado / onboarding_desactivado ya no se muestran)
-
-// Reseñas
-export const TIPO_RESENA = "resena_enviada";
 
 // Diseños votados ("¿Te gustó el diseño?")
 export const TIPO_DISENO_LIKE = "diseno_like";

@@ -48,6 +48,18 @@
 //     registro queda en la lista (marcado "eliminado") hasta que lo quités
 //     con "Quitar de la lista".
 //
+// IDIOMAS (es / en / pt)
+//   El español va en los campos de siempre (rico.texto, rico.pregunta…).
+//   Inglés y portugués van dentro de `rico.idioma`, solo con los textos:
+//     rico.idioma = {
+//       en: { texto?, titulo?, descripcion?, pregunta?, opciones?: ["…"] },
+//       pt: { … }
+//     }
+//   `opciones` es la lista de textos en el mismo orden que rico.opciones.
+//   La app muestra el idioma de Ajustes; si un texto está vacío, el español.
+//   Los mensajes de texto simple del chat llevan `idioma: { es, en, pt }`
+//   (strings) al lado de `texto` (ver Chat.jsx).
+//
 // FORMATOS DENTRO DE LOS TEXTOS (los entiende la app y la vista previa):
 //   *texto*          negrita
 //   **texto**        negrita grande
@@ -103,6 +115,78 @@ const entero = (v) => {
 
 const esUrl = (u = "") => /^https?:\/\/\S+$/i.test(String(u).trim());
 
+// ------------------------------------------------------------
+// IDIOMAS
+// ------------------------------------------------------------
+
+export const IDIOMAS = [
+  { id: "es", nombre: "Español", bandera: "🇪🇸" },
+  { id: "en", nombre: "Inglés", bandera: "🇬🇧" },
+  { id: "pt", nombre: "Portugués", bandera: "🇧🇷" },
+];
+
+const CAMPOS_TRADUCIBLES = ["texto", "titulo", "descripcion", "pregunta", "opciones"];
+
+export const leerTraduccion = (rico, lang, campo) =>
+  rico?.idioma?.[lang]?.[campo];
+
+export const ponerTraduccion = (rico, lang, campo, valor) => ({
+  ...rico,
+  idioma: {
+    ...(rico?.idioma ?? {}),
+    [lang]: { ...(rico?.idioma?.[lang] ?? {}), [campo]: valor },
+  },
+});
+
+// Deja solo los textos con contenido; si no queda nada devuelve null
+const limpiarIdioma = (idioma, cantOpciones) => {
+  if (!idioma || typeof idioma !== "object") return null;
+  const salida = {};
+
+  ["en", "pt"].forEach((lang) => {
+    const src = idioma[lang] ?? {};
+    const l = {};
+    CAMPOS_TRADUCIBLES.forEach((campo) => {
+      const v = src[campo];
+      if (campo === "opciones") {
+        if (Array.isArray(v) && cantOpciones > 0) {
+          const arr = Array.from({ length: cantOpciones }, (_, i) =>
+            String(v[i] ?? "").trim()
+          );
+          if (arr.some(Boolean)) l.opciones = arr;
+        }
+      } else if (String(v ?? "").trim()) {
+        l[campo] = String(v).trim();
+      }
+    });
+    if (Object.keys(l).length) salida[lang] = l;
+  });
+
+  return Object.keys(salida).length ? salida : null;
+};
+
+// Agrega `idioma` limpio a un rico ya limpio (las opciones vacías en
+// español se descartan, así que sus traducciones también)
+const conIdioma = (limpio, original) => {
+  let idioma = original?.idioma;
+  if (limpio.tipo === "encuesta_top" && idioma) {
+    const quedan = (Array.isArray(original.opciones) ? original.opciones : [])
+      .map((o, i) => (String(o?.texto ?? "").trim() ? i : -1))
+      .filter((i) => i >= 0);
+    idioma = Object.fromEntries(
+      Object.entries(idioma).map(([lang, l]) => [
+        lang,
+        Array.isArray(l?.opciones)
+          ? { ...l, opciones: quedan.map((i) => l.opciones[i] ?? "") }
+          : l,
+      ])
+    );
+  }
+  const cant = Array.isArray(limpio.opciones) ? limpio.opciones.length : 0;
+  const i = limpiarIdioma(idioma, cant);
+  return i ? { ...limpio, idioma: i } : limpio;
+};
+
 // ¿Este modo vive en la tabla compartida?
 export const esEncuesta = (modo) => MODOS_ENCUESTA.includes(modo);
 
@@ -154,6 +238,10 @@ export const ricoEstaVacio = (rico) => {
 // opcionales, números enteros y ids de opciones ordenados (a, b, c…)
 export const limpiarRico = (rico) => {
   const r = completarRico(rico);
+  return conIdioma(limpiarBase(r), r);
+};
+
+const limpiarBase = (r) => {
   const t = (v) => String(v ?? "").trim();
 
   switch (r.tipo) {
@@ -294,8 +382,10 @@ export const contadoresIniciales = (rico) => {
 export const definicionEncuesta = (rico) => {
   const r = limpiarRico(rico);
 
+  const i = r.idioma ? { idioma: r.idioma } : {};
+
   if (r.tipo === "encuesta_likes") {
-    return { tipo: "encuesta_likes", pregunta: r.pregunta };
+    return { tipo: "encuesta_likes", pregunta: r.pregunta, ...i };
   }
 
   if (r.tipo === "encuesta_top") {
@@ -303,6 +393,7 @@ export const definicionEncuesta = (rico) => {
       tipo: "encuesta_top",
       pregunta: r.pregunta,
       opciones: r.opciones.map((o) => ({ id: o.id, texto: o.texto })),
+      ...i,
     };
   }
 

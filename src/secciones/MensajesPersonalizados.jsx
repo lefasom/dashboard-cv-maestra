@@ -28,7 +28,6 @@ import ModalMensajeRico from "../components/ModalMensajeRico";
 import PreviewMensaje from "../components/PreviewMensaje";
 import { MODOS_MENSAJE } from "../config";
 import { useEnvios, usePlantillas } from "../hooks/useMensajesRicos";
-import useNombresChats from "../hooks/useNombresChats";
 import {
   borrarPlantilla,
   DEMOS_MENSAJE,
@@ -39,7 +38,6 @@ import "../estilos-mensajes.css";
 
 export default function MensajesPersonalizados({ chats }) {
   const lista = chats?.chats ?? [];
-  const nombres = useNombresChats();
 
   const { plantillas, cargando, error } = usePlantillas();
   const { envios, cargando: cargandoEnvios, error: errorEnvios } = useEnvios();
@@ -269,7 +267,6 @@ export default function MensajesPersonalizados({ chats }) {
       {modal && (
         <ModalMensajeRico
           chats={lista}
-          nombres={nombres}
           soloGuardar
           modoInicial={modal.modo ?? "texto"}
           plantillaInicial={modal.plantilla ?? null}

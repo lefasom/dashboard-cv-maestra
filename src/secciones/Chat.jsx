@@ -10,29 +10,25 @@
 //   - Izquierda: un chat por usuario (Chat 1, Chat 2…). Los SIN RESPONDER
 //     siempre van primero. Punto verde = en el chat; punto ámbar = en la
 //     app pero fuera del chat.
-//     Si el usuario dejó una reseña, al lado del número se muestra el
-//     nombre que puso en ella: "Chat 1 (Nombre)".
 //   - Derecha: la conversación, estilo WhatsApp. Escribís y respondés.
-//     En la cabecera, el botón "★ Reseña" abre un modal con la reseña de
-//     ese usuario (se busca por chatId en dashboard_reviews).
-//     Junto a él, "👍 Sus me gusta" y "👎 Sus no me gusta" abren un modal con
+//     En la cabecera, "👍 Sus me gusta" y "👎 Sus no me gusta" abren un modal con
 //     los NOMBRES de los diseños de CV que ese usuario votó (se busca por
 //     userId en dashboard_design_feedback; es el mismo id que el chat).
 //
-// ABRIR UN CHAT DESDE OTRA PESTAÑA (por ejemplo desde Reseñas)
+// ABRIR UN CHAT DESDE OTRA PESTAÑA
 //   Props opcionales:
-//     chatIdAbrir   -> id del chat que se quiere abrir (el chatId de la reseña)
+//     chatIdAbrir   -> id del chat que se quiere abrir 
 //     onChatAbierto -> se llama cuando Chat ya procesó el pedido, para que el
 //                      padre ponga chatIdAbrir en null
 //   Cuando llega chatIdAbrir y la lista de chats ya cargó, se abre ese chat
 //   (si estaba activo "Solo sin responder", se quita para que se vea). Si el
 //   chat no existe (por ejemplo, se borró), se muestra un aviso.
 //
-// NOMBRE ENTRE PARÉNTESIS
-//   Se escuchan las reseñas (dashboard_reviews) y se arma un mapa
-//   chatId -> nombre. Si el usuario cambia su reseña desde la app, el
-//   nombre se actualiza solo. Si hay más de una reseña del mismo chat, se
-//   usa la más nueva.
+// IDIOMAS DE LOS MENSAJES
+//   Al enviar (o editar) un mensaje se abre un modal con tres campos:
+//   Español, Inglés y Portugués. Se guarda `texto` (español, lo que ves acá
+//   y lo que leen las APK viejas) y `idioma: { es, en, pt }`. La app muestra
+//   el idioma de Ajustes; si ese está vacío, el español.
 //
 // MENÚ DE CADA MENSAJE (tres puntitos ⋯):
 //   - Eliminar: cualquier mensaje (tuyo o del usuario). Pide confirmación.
@@ -81,14 +77,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import ModalDisenos from "../components/ModalDisenos";
 import ModalHistorial from "../components/ModalHistorial";
-import ModalResena from "../components/ModalResena";
 import MenuAgregarMensaje from "../components/MenuAgregarMensaje";
 import ModalMensajeRico from "../components/ModalMensajeRico";
 import { ContenidoMensaje } from "../components/PreviewMensaje";
 import {
   COLECCIONES,
   LIMITE_MENSAJES_CHAT,
-  LIMITE_RESENAS,
   LIMITE_TEXTO_RESPUESTA,
   MODOS_ENCUESTA,
   MODOS_MENSAJE,
@@ -261,6 +255,28 @@ const ESTILOS_MENU = `
   font-style: italic;
 }
 
+.chat-idiomas-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.chat-idiomas-campo textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: var(--superficie-alt);
+  color: var(--texto);
+  font: inherit;
+  font-weight: 400;
+  resize: vertical;
+}
+
 .btn-resena {
   padding: 4px 12px;
   border: 1px solid var(--borde);
@@ -410,10 +426,12 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState(null);
 
-  // Filtro "solo sin responder", modal de historial y modal de reseña
+  // Filtro "solo sin responder" y modal de historial
   const [soloSinResponder, setSoloSinResponder] = useState(false);
   const [historialAbierto, setHistorialAbierto] = useState(false);
-  const [resenaAbierta, setResenaAbierta] = useState(false);
+
+  // Modal de idiomas: null o { modo: "enviar" } / { modo: "editar", m }
+  const [modalIdiomas, setModalIdiomas] = useState(null);
 
   // Modal de diseños votados: null, "like" o "dislike"
   const [disenosAbierto, setDisenosAbierto] = useState(null);
@@ -423,7 +441,6 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
   const [modalRico, setModalRico] = useState(null);
 
   // Nombre ficticio de cada chat, tomado de su reseña: { [chatId]: nombre }
-  const [nombres, setNombres] = useState({});
 
   // Aviso cuando se pidió abrir un chat que no existe (por ejemplo, desde
   // una reseña cuyo chat ya se borró)
@@ -491,46 +508,13 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
     onChatAbierto?.();
   }, [chatIdAbrir, cargando, lista, onChatAbierto]);
 
-  // Nombres ficticios: se escuchan las reseñas (la más nueva primero) y se
-  // guarda, por cada chatId, el nombre de su reseña más reciente
-  useEffect(() => {
-    const consulta = query(
-      collection(db, COLECCIONES.RESENAS),
-      orderBy("createdAt", "desc"),
-      limit(LIMITE_RESENAS)
-    );
-
-    return onSnapshot(
-      consulta,
-      (snapshot) => {
-        const mapa = {};
-
-        snapshot.docs.forEach((d) => {
-          const data = d.data();
-          const chatId = typeof data.chatId === "string" ? data.chatId : "";
-          const nombre = String(data.nombre ?? "").trim();
-
-          if (chatId && nombre && !(chatId in mapa)) {
-            mapa[chatId] = nombre;
-          }
-        });
-
-        setNombres(mapa);
-      },
-      (err) => {
-        // Si falla, la lista sigue funcionando, solo sin los nombres
-        console.warn("[chat] No se pudieron leer los nombres:", err);
-      }
-    );
-  }, []);
-
   // Al cambiar de chat se cierra cualquier menú / edición / modal pendiente
   useEffect(() => {
     setMenu(null);
     setEditandoId(null);
     setConfirmandoId(null);
     setErrorMensaje(null);
-    setResenaAbierta(false);
+    setModalIdiomas(null);
     setDisenosAbierto(null);
     setModalRico((m) => (m?.destino === "este" ? null : m));
   }, [seleccionId]);
@@ -572,6 +556,9 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
               id: d.id,
               de: data.de === "soporte" ? "soporte" : "usuario",
               texto: String(data.texto ?? ""),
+              // Traducciones { es, en, pt } (mensajes simples nuevos)
+              idioma:
+                data.idioma && typeof data.idioma === "object" ? data.idioma : null,
               // Mensaje personalizado dentro del mensaje (texto, tarjeta,
               // video y encuestas VIEJAS que todavía llevan su `rico`)
               rico:
@@ -673,8 +660,14 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
   // en una sola operación.
   // ultimaRespuestaEn usa el mayor entre "ahora" y el último mensaje del
   // usuario (por si el reloj de su teléfono está adelantado).
-  const enviar = async () => {
-    const limpio = texto.trim().slice(0, LIMITE_TEXTO_RESPUESTA);
+  // Enter / ➤ abre el modal de idiomas con el español ya cargado
+  const enviar = () => {
+    if (!texto.trim() || !seleccionId || enviando) return;
+    setModalIdiomas({ modo: "enviar" });
+  };
+
+  const enviarIdiomas = async (idioma) => {
+    const limpio = idioma.es;
     if (!limpio || !seleccionId || enviando) return;
 
     setEnviando(true);
@@ -690,6 +683,7 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
       batch.set(mensajeRef, {
         de: "soporte",
         texto: limpio,
+        idioma,
         enviadoEn: ahora,
         createdAt: serverTimestamp(),
       });
@@ -701,6 +695,7 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
       await batch.commit();
 
       setTexto("");
+      setModalIdiomas(null);
     } catch (err) {
       console.error("[chat] No se pudo enviar:", err);
       setErrorEnvio("No se pudo enviar el mensaje. Intentá de nuevo.");
@@ -751,8 +746,32 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
     setMenu(null);
     setConfirmandoId(null);
     setErrorMensaje(null);
-    setEditandoId(m.id);
-    setTextoEdicion(m.texto);
+    setModalIdiomas({ modo: "editar", m });
+  };
+
+  const guardarEdicionIdiomas = async (m, idioma) => {
+    if (!idioma.es || !seleccionId || trabajando) return;
+
+    setTrabajando(true);
+    setErrorMensaje(null);
+
+    try {
+      await updateDoc(
+        doc(db, COLECCIONES.CHATS, seleccionId, "messages", m.id),
+        { texto: idioma.es, idioma, editadoEn: Date.now() }
+      );
+      setModalIdiomas(null);
+    } catch (err) {
+      console.error("[chat] No se pudo editar el mensaje:", err);
+      setErrorMensaje(
+        err?.code === "permission-denied"
+          ? "No se pudo editar: falta publicar las reglas nuevas en firestore.rules."
+          : "No se pudo editar el mensaje. Intentá de nuevo."
+      );
+      setModalIdiomas(null);
+    } finally {
+      setTrabajando(false);
+    }
   };
 
   const cancelarEdicion = () => {
@@ -977,9 +996,6 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
                   <span className="chat-item-fila">
                     <span className="chat-titulo">
                       <strong>Chat {c.numero}</strong>
-                      {nombres[c.id] && (
-                        <span className="chat-nombre"> ({nombres[c.id]})</span>
-                      )}
                     </span>
                     <span
                       className={`chat-item-hora${
@@ -1034,12 +1050,6 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
                 <div className="chat-cab-texto">
                   <strong>
                     Chat {seleccionado.numero}
-                    {nombres[seleccionado.id] && (
-                      <span className="chat-nombre">
-                        {" "}
-                        ({nombres[seleccionado.id]})
-                      </span>
-                    )}
                   </strong>
                   <span>
                     {estadoDe(seleccionado)}
@@ -1055,13 +1065,6 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
                   {seleccionado.idioma && (
                     <span className="etiqueta">{seleccionado.idioma}</span>
                   )}
-                  <button
-                    type="button"
-                    className="btn-resena"
-                    onClick={() => setResenaAbierta(true)}
-                  >
-                    ★ Reseña
-                  </button>
                   <button
                     type="button"
                     className="btn-resena"
@@ -1300,7 +1303,6 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
         <ModalMensajeRico
           chats={lista}
           chatActual={modalRico.destino === "este" ? seleccionado : null}
-          nombres={nombres}
           modoInicial={modalRico.modo ?? "texto"}
           destinoInicial={modalRico.destino}
           pestanaInicial={modalRico.pestana ?? "crear"}
@@ -1315,11 +1317,27 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
         />
       )}
 
-      {resenaAbierta && seleccionado && (
-        <ModalResena
-          chatId={seleccionado.id}
-          numero={seleccionado.numero}
-          onClose={() => setResenaAbierta(false)}
+      {modalIdiomas && (
+        <ModalIdiomas
+          titulo={modalIdiomas.modo === "editar" ? "Editar mensaje" : "Enviar mensaje"}
+          inicial={
+            modalIdiomas.modo === "editar"
+              ? {
+                  es: modalIdiomas.m.idioma?.es || modalIdiomas.m.texto,
+                  en: modalIdiomas.m.idioma?.en ?? "",
+                  pt: modalIdiomas.m.idioma?.pt ?? "",
+                }
+              : { es: texto, en: "", pt: "" }
+          }
+          ocupado={enviando || trabajando}
+          error={modalIdiomas.modo === "enviar" ? errorEnvio : null}
+          textoBoton={modalIdiomas.modo === "editar" ? "Guardar todo" : "Enviar todo"}
+          onConfirmar={(idioma) =>
+            modalIdiomas.modo === "editar"
+              ? guardarEdicionIdiomas(modalIdiomas.m, idioma)
+              : enviarIdiomas(idioma)
+          }
+          onClose={() => setModalIdiomas(null)}
         />
       )}
 
@@ -1332,5 +1350,73 @@ export default function Chat({ chats, chatIdAbrir, onChatAbierto }) {
         />
       )}
     </>
+  );
+}
+
+// ------------------------------------------------------------
+// MODAL DE IDIOMAS: el mismo mensaje en Español, Inglés y Portugués.
+// El español es obligatorio; si inglés o portugués quedan vacíos, la app
+// muestra el español.
+// ------------------------------------------------------------
+
+const IDIOMAS_CHAT = [
+  { id: "es", nombre: "🇪🇸 Español (obligatorio)" },
+  { id: "en", nombre: "🇬🇧 Inglés" },
+  { id: "pt", nombre: "🇧🇷 Portugués" },
+];
+
+function ModalIdiomas({ titulo, inicial, ocupado, error, textoBoton, onConfirmar, onClose }) {
+  const [valores, setValores] = useState(inicial);
+
+  const limpio = (v) => String(v ?? "").trim().slice(0, LIMITE_TEXTO_RESPUESTA);
+  const confirmar = () =>
+    onConfirmar({ es: limpio(valores.es), en: limpio(valores.en), pt: limpio(valores.pt) });
+
+  return (
+    <div className="modal-fondo" onClick={onClose} role="presentation">
+      <div
+        className="modal-caja"
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 560, width: "100%", padding: 16 }}
+      >
+        <h3 style={{ marginTop: 0 }}>{titulo}</h3>
+        <p style={{ marginTop: 0, opacity: 0.75, fontSize: 13 }}>
+          Cada usuario lo ve en el idioma que tiene elegido en Ajustes. Si
+          dejás Inglés o Portugués vacío, se le muestra el Español.
+        </p>
+
+        {IDIOMAS_CHAT.map(({ id, nombre }) => (
+          <label key={id} className="chat-idiomas-campo">
+            {nombre}
+            <textarea
+              rows={3}
+              value={valores[id]}
+              maxLength={LIMITE_TEXTO_RESPUESTA}
+              autoFocus={id === "en"}
+              onChange={(e) => setValores((v) => ({ ...v, [id]: e.target.value }))}
+            />
+          </label>
+        ))}
+
+        {error && <p className="error">{error}</p>}
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button type="button" className="btn-claro" onClick={onClose} disabled={ocupado}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="mr-btn mr-btn-principal"
+            onClick={confirmar}
+            disabled={ocupado || !limpio(valores.es)}
+          >
+            {ocupado ? "Enviando…" : textoBoton}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

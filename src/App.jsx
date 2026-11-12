@@ -26,7 +26,6 @@ import Distribucion from "./secciones/Distribucion";
 import MensajesPersonalizados from "./secciones/MensajesPersonalizados";
 import Estadisticas from "./secciones/Estadisticas";
 import Onboarding from "./secciones/Onboarding";
-import Resenas from "./secciones/Resenas";
 import Uso from "./secciones/Uso";
 import Valoracion from "./secciones/Valoracion";
 import Versiones from "./secciones/Versiones";
@@ -53,7 +52,6 @@ const SECCIONES = [
   { id: "estadisticas", label: "Estadísticas", componente: Estadisticas },
   { id: "uso", label: "Uso", componente: Uso },
   { id: "onboarding", label: "Onboarding", componente: Onboarding },
-  { id: "resenas", label: "Reseñas", componente: Resenas },
   { id: "chat", label: "Chat", componente: Chat },
   {
     id: "mensajes",
