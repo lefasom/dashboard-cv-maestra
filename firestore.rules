@@ -1,54 +1,73 @@
 rules_version = '2';
 
 // IMPORTANTE: si ya tenés un firestore.rules con otras colecciones,
-// NO lo reemplaces entero. Copiá las funciones `eventoValido`, `resenaValida`
-// `resenaEditadaValida`, `disenoFeedbackValido`, `mapaUno`, `cambioUnDiseno`
-// y las del bloque USO AGREGADO (`usoDeltaOk`, `usoDelta`, `usoGrupoUso`,
+// NO lo reemplaces entero. Copiá las funciones `eventoValido`,
+// `disenoFeedbackValido`, `mapaUno`, `cambioUnDiseno`,
+// las del bloque USO AGREGADO (`usoDeltaOk`, `usoDelta`, `usoGrupoUso`,
 // `usoGrupoEditor`, `usoGrupoTamanos`, `usoGrupoAjustes`, `usoGrupoIdiomas`,
-// `usoCrearOk`, `usoActualizarOk`), los 6 bloques
-// `match /dashboard_.../{id}`, los 6 bloques
-// `match /dashboard_config/...` (diseno_resets, diseno_contadores,
-// uso_contadores, distribucion, versiones y versiones_historial) y el bloque
-// `match /chats/{userId}` dentro de tu archivo actual.
+// `usoCrearOk`, `usoActualizarOk`), las de ENCUESTAS COMPARTIDAS
+// (`cmpDelta`, `cmpClaveOk`, `cmpVotoOk`), los 5 bloques
+// `match /dashboard_.../{id}`, los 7 bloques
+// `match /dashboard_config/...` y `match /dashboard_mensajes_.../{id}`
+// (diseno_resets, diseno_contadores, uso_contadores, distribucion, versiones,
+// versiones_historial, mensajes_modulos, mensajes_plantillas, mensajes_envios
+// y mensajes_compartidos) y el bloque `match /chats/{userId}` dentro de tu
+// archivo actual.
 //
-// Si venías de la versión anterior, BORRÁ las funciones viejas del bloque
-// USO AGREGADO (`usoEstructuraOk`, `usoCrearDelta`, `usoGrupoClavesOk`,
-// `usoActualizarUsoOk`, `usoActualizarEditorOk`, `usoActualizarTamanosOk`,
-// `usoActualizarAjustesOk`, `usoActualizarIdiomasOk`): ya no se usan.
+// CAMBIOS DE ESTA VERSIÓN (12/11/2026: mensajes en 3 idiomas, sin reseñas):
+//   - Se ELIMINAN las reseñas: el bloque `match /dashboard_reviews/{id}` y
+//     las funciones `resenaValida` / `resenaEditadaValida`. Sin bloque, la
+//     colección queda cerrada (nadie lee ni escribe). Los documentos viejos
+//     se pueden borrar a mano desde la consola de Firebase.
+//   - chats/{id}/messages: los mensajes del soporte pueden traer `idioma`
+//     = { es, en, pt } (strings, en/pt pueden ir vacíos). `texto` sigue
+//     siendo el español. Editar puede cambiar `texto` e `idioma`.
+//   - Los mensajes personalizados guardan las traducciones DENTRO de `rico`
+//     (`rico.idioma = { en: {...}, pt: {...} }`), así que plantillas,
+//     envíos y encuestas compartidas no necesitan reglas nuevas.
 //
-// CAMBIOS DE ESTA VERSIÓN (registro de envíos masivos):
-//   - Bloque nuevo `match /dashboard_mensajes_envios/{id}`: registro de los
+// CAMBIOS DE LA VERSIÓN ANTERIOR (encuestas compartidas):
+//   - Bloque nuevo `match /dashboard_mensajes_compartidos/{id}`: la tabla
+//     donde vive cada encuesta (me gusta / ranking) UNA sola vez, con sus
+//     contadores. La app (sin sesión) la LEE por id y solo puede MOVER votos
+//     en `contadores` (voto nuevo = una clave +1; cambiar de voto = una clave
+//     -1 y otra +1). El dashboard (con sesión) puede todo.
+//     Funciones nuevas: `cmpDelta`, `cmpClaveOk`, `cmpVotoOk`.
+//   - chats/{id}/messages: el soporte (dashboard) ahora puede guardar el
+//     campo `refId` (referencia a la encuesta compartida). `ricoValido`
+//     acepta tres formas de mensaje:
+//        1) sin `modo` / `rico` / `refId`        (texto simple)
+//        2) `modo` + `rico`, sin `refId`          (texto, tarjeta, video y
+//                                                  encuestas VIEJAS)
+//        3) `modo` de encuesta + `refId`, sin `rico` (encuesta compartida)
+//     Editar un mensaje no puede cambiar `modo`, `rico` ni `refId`.
+//
+// CAMBIOS DE LA VERSIÓN ANTERIOR (registro de envíos masivos):
+//   - Bloque `match /dashboard_mensajes_envios/{id}`: registro de los
 //     mensajes enviados a varios chats, para poder borrarlos de todos con un
 //     botón desde el dashboard. Solo el dashboard (con sesión); la app de
 //     React Native no lo lee ni lo escribe.
-//   - No se tocó ninguna otra regla. Los mensajes de un envío masivo llevan
-//     el mismo id (`env_<envioId>`) en cada chat; las reglas de
-//     chats/{id}/messages ya permiten crear con id propio y borrar.
+//   - Los mensajes de un envío masivo llevan el mismo id (`env_<envioId>`)
+//     en cada chat; las reglas de chats/{id}/messages ya permiten crear con
+//     id propio y borrar.
 //
 // CAMBIOS DE LA VERSIÓN ANTERIOR (mensajes personalizados del chat):
 //   - chats/{id}/messages: el soporte (dashboard) puede agregar los campos
 //     `modo` y `rico` (tarjeta, video, encuestas, texto con formato). La
 //     función `ricoValido` (dentro de `match /chats/{userId}`) los valida.
-//     Los mensajes de la APP no pueden traerlos. Editar un mensaje no puede
-//     cambiar `modo` ni `rico`.
-//   - Bloque nuevo `match /dashboard_mensajes_plantillas/{id}`: mensajes
+//     Los mensajes de la APP no pueden traerlos.
+//   - Bloque `match /dashboard_mensajes_plantillas/{id}`: mensajes
 //     guardados con nombre. Solo el dashboard (con sesión).
-//   - Bloque nuevo `match /dashboard_config/mensajes_modulos`: interruptores
+//   - Bloque `match /dashboard_config/mensajes_modulos`: interruptores
 //     de módulos y demos. La app (sin sesión) lee; el dashboard escribe.
 //
 // CAMBIOS DE LAS VERSIONES MÁS VIEJAS:
-//   - USO AGREGADO: CREATE y UPDATE se rehicieron para gastar muchísimas
-//     menos expresiones. La versión anterior evaluaba las 25 claves en cada
-//     escritura (~1.000 expresiones, el límite de Firestore por pedido) y
-//     Firestore la rechazaba con permission-denied aunque los datos fueran
-//     válidos. Ahora solo se validan los grupos y las claves que la
-//     escritura CAMBIA, y CREATE / UPDATE comparten los mismos validadores.
-//     Las validaciones son las mismas: claves permitidas, valores enteros,
-//     delta entre 0 y 1000 por clave y por escritura, nada de restar.
+//   - USO AGREGADO: CREATE y UPDATE gastan muchísimas menos expresiones
+//     (Firestore rechazaba con permission-denied cuando se rozaba el límite
+//     de ~1.000 expresiones por pedido). Solo se validan los grupos y las
+//     claves que la escritura CAMBIA.
 //   - Bloque `match /dashboard_config/versiones_historial` (archivo de
-//     versiones vencidas: lo escribe y lo lee solo el dashboard; la app no
-//     lo toca). Las versiones vencidas SIGUEN en `dashboard_config/versiones`
-//     para que las APK viejas continúen bloqueadas.
+//     versiones vencidas: lo escribe y lo lee solo el dashboard).
 //   - Bloque `match /dashboard_config/versiones` (control de versiones:
 //     la app lee la fecha de vencimiento de su versión; el dashboard la
 //     escribe). Es lo que usa el bloqueo de la app (utils/dateLock).
@@ -75,54 +94,6 @@ service cloud.firestore {
         && d.createdAt == request.time
         && (!('plantillaId' in d) || d.plantillaId is string)
         && (!('extra' in d) || d.extra is map);
-    }
-
-    // Reseña NUEVA:
-    // { tipo, nombre, estrellas, texto, plataforma, createdAt, idioma?, chatId? }
-    //   chatId = id anónimo del usuario (para poder borrar su reseña al
-    //   limpiar el historial desde el dashboard)
-    function resenaValida() {
-      let d = request.resource.data;
-      return d.keys().hasOnly(['tipo', 'nombre', 'estrellas', 'texto', 'plataforma', 'createdAt', 'idioma', 'chatId'])
-        && d.keys().hasAll(['tipo', 'nombre', 'estrellas', 'texto', 'plataforma', 'createdAt'])
-        && d.tipo == 'resena_enviada'
-        && d.nombre is string
-        && d.nombre.size() >= 1
-        && d.nombre.size() <= 40
-        && d.estrellas is int
-        && d.estrellas >= 1
-        && d.estrellas <= 5
-        && d.texto is string
-        && d.texto.size() <= 300
-        && d.plataforma is string
-        && d.plataforma.size() <= 20
-        && d.createdAt == request.time
-        && (!('idioma' in d) || (d.idioma is string && d.idioma.size() <= 5))
-        && (!('chatId' in d) || (d.chatId is string && d.chatId.size() <= 60));
-    }
-
-    // Reseña EDITADA desde la app ("Cambiar reseña"): se puede cambiar
-    // nombre, estrellas, texto e idioma. La fecha original (createdAt) y el
-    // chatId no se pueden tocar.
-    function resenaEditadaValida() {
-      let d = request.resource.data;
-      return d.keys().hasOnly(['tipo', 'nombre', 'estrellas', 'texto', 'plataforma', 'createdAt', 'idioma', 'chatId', 'editadaEn'])
-        && d.keys().hasAll(['tipo', 'nombre', 'estrellas', 'texto', 'plataforma', 'createdAt'])
-        && d.tipo == 'resena_enviada'
-        && d.nombre is string
-        && d.nombre.size() >= 1
-        && d.nombre.size() <= 40
-        && d.estrellas is int
-        && d.estrellas >= 1
-        && d.estrellas <= 5
-        && d.texto is string
-        && d.texto.size() <= 300
-        && d.plataforma is string
-        && d.plataforma.size() <= 20
-        && d.createdAt == resource.data.createdAt
-        && d.get('chatId', null) == resource.data.get('chatId', null)
-        && (!('idioma' in d) || (d.idioma is string && d.idioma.size() <= 5))
-        && (!('editadaEn' in d) || d.editadaEn == request.time);
     }
 
     // "¿Te gustó el diseño?": like / dislike de un usuario sobre una plantilla.
@@ -181,12 +152,7 @@ service cloud.firestore {
     //
     // POR QUÉ ESTÁ ARMADO ASÍ (límite de Firestore: 1.000 expresiones
     // evaluadas por pedido):
-    //   Las reglas no permiten bucles, así que hay una llamada por clave.
-    //   Evaluar las 25 claves en cada escritura rozaba el límite y
-    //   Firestore rechazaba con permission-denied aunque los datos fueran
-    //   válidos. Por eso:
-    //     1) Solo se revisan los GRUPOS que la escritura cambia
-    //        (`!('editor' in top) || ...` salta el resto).
+    //     1) Solo se revisan los GRUPOS que la escritura cambia.
     //     2) Dentro de un grupo, solo se revisa el delta de las CLAVES que
     //        cambian (`!(k in ch) || ...`).
     //     3) CREATE y UPDATE usan los mismos validadores de grupo: en
@@ -311,6 +277,65 @@ service cloud.firestore {
         && (!('idiomas' in top) || usoGrupoIdiomas(d.get('idiomas', {}), r.get('idiomas', {})));
     }
 
+    // ============================================================
+    // ENCUESTAS COMPARTIDAS (dashboard_mensajes_compartidos)
+    //
+    // Cada encuesta (me gusta / ranking) vive acá UNA sola vez:
+    //   { nombre, texto, modo, rico: { tipo, pregunta, opciones? },
+    //     contadores: { ... }, creadoEn, enviadoEn }
+    //   contadores:
+    //     encuesta_likes -> { me_gusta: n, no_me_gusta: n }
+    //     encuesta_top   -> { a: n, b: n, c: n, d: n, e: n, f: n }
+    //
+    // La app (sin sesión) solo puede MOVER votos en `contadores`:
+    //   - voto nuevo:       una clave +1
+    //   - cambiar de voto:  una clave -1 y otra +1
+    // Es decir: cada clave cambia como mucho ±1, nunca queda negativa y la
+    // SUMA de los cambios es 0 o 1 (nunca se puede sumar de a más de 1).
+    //
+    // Claves permitidas: me_gusta, no_me_gusta (likes) y a..f (ranking,
+    // máximo 6 opciones). Son 8 claves fijas porque las reglas no tienen
+    // bucles; el costo es chico (~100 expresiones, muy lejos del límite).
+    // ============================================================
+
+    // Cambio (nuevo - viejo) de una clave de `contadores`
+    function cmpDelta(n, v, k) {
+      return n.get(k, 0) - v.get(k, 0);
+    }
+
+    // La clave es un entero >= 0 y cambió como mucho en 1 hacia cualquier lado
+    function cmpClaveOk(n, v, k) {
+      return n.get(k, 0) is int
+        && n.get(k, 0) >= 0
+        && cmpDelta(n, v, k) >= -1
+        && cmpDelta(n, v, k) <= 1;
+    }
+
+    // Escritura de la app: solo `contadores`, solo esas 8 claves, y movimiento
+    // de votos válido (suma de cambios entre 0 y 1)
+    function cmpVotoOk() {
+      let n = request.resource.data.get('contadores', {});
+      let v = resource.data.get('contadores', {});
+      let suma = cmpDelta(n, v, 'me_gusta') + cmpDelta(n, v, 'no_me_gusta')
+        + cmpDelta(n, v, 'a') + cmpDelta(n, v, 'b') + cmpDelta(n, v, 'c')
+        + cmpDelta(n, v, 'd') + cmpDelta(n, v, 'e') + cmpDelta(n, v, 'f');
+
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contadores'])
+        && n is map
+        && n.diff(v).affectedKeys().hasOnly(
+            ['me_gusta', 'no_me_gusta', 'a', 'b', 'c', 'd', 'e', 'f'])
+        && cmpClaveOk(n, v, 'me_gusta')
+        && cmpClaveOk(n, v, 'no_me_gusta')
+        && cmpClaveOk(n, v, 'a')
+        && cmpClaveOk(n, v, 'b')
+        && cmpClaveOk(n, v, 'c')
+        && cmpClaveOk(n, v, 'd')
+        && cmpClaveOk(n, v, 'e')
+        && cmpClaveOk(n, v, 'f')
+        && suma >= 0
+        && suma <= 1;
+    }
+
     // Plantillas: descargas de PDF y agregadas a la colección
     match /dashboard_events/{id} {
       allow create: if eventoValido(['plantilla_descargada', 'plantilla_biblioteca']);
@@ -363,14 +388,6 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow update: if false;
       allow delete: if request.auth != null;
-    }
-
-    // Reseñas (las envía y edita la app, las lee y borra el dashboard)
-    match /dashboard_reviews/{id} {
-      allow create: if resenaValida();
-      allow read: if request.auth != null;
-      allow update: if resenaEditadaValida();   // "Cambiar reseña" en la app
-      allow delete: if request.auth != null;     // Historial / Restablecer datos
     }
 
     // Likes / dislikes de diseños (los envía la app, los lee y borra el dashboard)
@@ -527,6 +544,9 @@ service cloud.firestore {
     //         enviadoEn, creadoEn, eliminadoEn? }
     //       Solo el dashboard (con sesión). La app NO lo usa.
     //
+    //   dashboard_mensajes_compartidos/{id}  encuestas compartidas
+    //       (ver bloque ENCUESTAS COMPARTIDAS más arriba)
+    //
     //   dashboard_config/mensajes_modulos    interruptores
     //       { modulos: { texto, tarjeta, video, encuesta_likes,
     //                    encuesta_top }, mostrarDemo, actualizadoEn }
@@ -570,6 +590,19 @@ service cloud.firestore {
         && request.resource.data.chats is list
         && request.resource.data.chats.size() <= 2000
         && request.resource.data.get('estado', 'enviado') in ['enviando', 'enviado', 'parcial', 'eliminado'];
+    }
+
+    // Encuestas compartidas: la app (sin sesión) lee por id y solo mueve
+    // votos; el dashboard (con sesión) puede todo.
+    match /dashboard_mensajes_compartidos/{id} {
+      allow get: if true;
+      allow list: if request.auth != null;
+
+      // Dashboard (con sesión): crear, editar, reiniciar contadores, borrar
+      allow create, update, delete: if request.auth != null;
+
+      // App (sin sesión): solo mover votos en `contadores`
+      allow update: if cmpVotoOk();
     }
 
     match /dashboard_config/mensajes_modulos {
@@ -618,17 +651,40 @@ service cloud.firestore {
           && request.resource.data.get('resetEn', null) == resource.data.get('resetEn', null);
       }
 
-      // Mensaje personalizado (solo lo manda el dashboard): `modo` y `rico`
-      // van juntos, el modo es uno de los conocidos y rico.tipo == modo.
+      // Mensaje personalizado (solo lo manda el dashboard). Tres formas:
+      //   1) sin `modo`, `rico` ni `refId`            -> texto simple
+      //   2) `modo` + `rico` (sin `refId`)            -> texto, tarjeta, video
+      //                                                  y encuestas VIEJAS
+      //   3) `modo` de encuesta + `refId` (sin `rico`)-> encuesta compartida
+      //                                                  (la definición y los
+      //                                                  votos viven en
+      //                                                  dashboard_mensajes_
+      //                                                  compartidos)
       function ricoValido() {
         let d = request.resource.data;
-        return (!('modo' in d) && !('rico' in d))
-          || ('modo' in d
-            && 'rico' in d
-            && d.modo in ['texto', 'tarjeta', 'video', 'encuesta_likes', 'encuesta_top']
-            && d.rico is map
-            && d.rico.get('tipo', null) == d.modo
-            && d.rico.size() <= 8);
+        let sinExtras = !('modo' in d) && !('rico' in d) && !('refId' in d);
+        let enMensaje = 'modo' in d
+          && 'rico' in d
+          && !('refId' in d)
+          && d.modo in ['texto', 'tarjeta', 'video', 'encuesta_likes', 'encuesta_top']
+          && d.rico is map
+          && d.rico.get('tipo', null) == d.modo
+          && d.rico.size() <= 8;
+        let compartida = 'modo' in d
+          && 'refId' in d
+          && !('rico' in d)
+          && d.modo in ['encuesta_likes', 'encuesta_top']
+          && d.refId is string
+          && d.refId.size() >= 1
+          && d.refId.size() <= 60;
+        return sinExtras || enMensaje || compartida;
+      }
+
+      // Traducciones de un mensaje simple del soporte: { es, en, pt }
+      function idiomaOk() {
+        let d = request.resource.data;
+        return !('idioma' in d)
+          || (d.idioma is map && d.idioma.keys().hasOnly(['es', 'en', 'pt']));
       }
 
       // La app lee solo SU ficha (por id). Listar todos: solo el dashboard.
@@ -671,10 +727,11 @@ service cloud.firestore {
         // Tuyos (dashboard con sesión): sin límite diario
         allow create: if request.auth != null
           && request.resource.data.keys().hasOnly(
-              ['de', 'texto', 'enviadoEn', 'createdAt', 'modo', 'rico'])
+              ['de', 'texto', 'enviadoEn', 'createdAt', 'modo', 'rico', 'refId', 'idioma'])
           && request.resource.data.keys().hasAll(
               ['de', 'texto', 'enviadoEn'])
           && ricoValido()
+          && idiomaOk()
           && request.resource.data.de == 'soporte'
           && request.resource.data.texto is string
           && request.resource.data.texto.size() > 0
@@ -682,13 +739,15 @@ service cloud.firestore {
           && request.resource.data.enviadoEn is number;
 
         // Editar tus propios mensajes (dashboard con sesión):
-        // solo los de 'soporte'. Se puede cambiar el texto y se marca
-        // con editadoEn. El autor y las fechas originales no se tocan.
+        // solo los de 'soporte'. Se puede cambiar el texto (y sus
+        // traducciones en `idioma`) y se marca
+        // con editadoEn. El autor, las fechas originales, `modo`, `rico` y
+        // `refId` no se tocan.
         allow update: if request.auth != null
           && resource.data.de == 'soporte'
           && request.resource.data.de == 'soporte'
           && request.resource.data.keys().hasOnly(
-              ['de', 'texto', 'enviadoEn', 'createdAt', 'editadoEn', 'modo', 'rico'])
+              ['de', 'texto', 'enviadoEn', 'createdAt', 'editadoEn', 'modo', 'rico', 'refId', 'idioma'])
           && request.resource.data.keys().hasAll(
               ['de', 'texto', 'enviadoEn', 'editadoEn'])
           && request.resource.data.texto is string
@@ -698,7 +757,9 @@ service cloud.firestore {
           && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
           && request.resource.data.get('modo', null) == resource.data.get('modo', null)
           && request.resource.data.get('rico', null) == resource.data.get('rico', null)
-          && request.resource.data.editadoEn is number;
+          && request.resource.data.get('refId', null) == resource.data.get('refId', null)
+          && request.resource.data.editadoEn is number
+          && idiomaOk();
 
         allow delete: if request.auth != null;
       }
