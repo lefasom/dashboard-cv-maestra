@@ -1154,3 +1154,234 @@
     transform: none;
   }
 }
+/* ==========================================
+   AGREGADOS: landing de venta (12/11/2026)
+   ========================================== */
+
+/* En el hero el marco lo pone .landing-telefono: la captura va sin marco */
+.landing-telefono .landing-pantalla {
+  width: 100%;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 22px;
+  overflow: hidden;
+}
+.landing-telefono .landing-pantalla img,
+.landing-telefono .landing-captura {
+  border-radius: 22px;
+}
+
+/* Recuadro de captura pendiente: dice qué pantalla va y qué PNG falta */
+.landing-captura {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  aspect-ratio: 724 / 1610;
+  padding: 18px 14px;
+  border: 2px dashed rgba(96, 165, 250, 0.55);
+  border-radius: calc(var(--w, 236px) * 0.049);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(59, 130, 246, 0.22), transparent 60%),
+    #0b1220;
+  color: var(--gris);
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.landing-captura strong {
+  color: var(--texto);
+  font-size: 16px;
+  line-height: 1.3;
+}
+.landing-captura code {
+  margin-top: 6px;
+  color: var(--azul-claro);
+  font-size: 10.5px;
+  word-break: break-all;
+}
+.landing-captura-tag {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--azul-claro);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+/* CTA y chips del hero */
+.landing-hero-cta {
+  margin-top: 28px;
+}
+.landing-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.landing-chips li {
+  padding: 6px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--texto);
+  font-size: 13px;
+  font-weight: 700;
+}
+.landing-chips li::before {
+  content: "✓ ";
+  color: var(--azul-claro);
+}
+
+/* Números de la franja */
+.landing-numeros {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+}
+.landing-numeros strong {
+  display: block;
+  color: var(--texto);
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 900;
+  line-height: 1;
+}
+.landing-numeros span {
+  display: block;
+  margin-top: 6px;
+  color: var(--gris);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Pasos numerados (cómo funciona e instalación) */
+.landing-instalar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.landing-pasos {
+  grid-template-columns: repeat(4, 1fr);
+}
+.landing-instalar li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 22px;
+  border: 1px solid var(--borde);
+  border-radius: 18px;
+  background: var(--panel);
+}
+.landing-instalar h3 {
+  margin: 2px 0 6px;
+  color: var(--texto);
+  font-size: 17px;
+}
+.landing-instalar p {
+  margin: 0;
+  color: var(--gris);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.landing-instalar .landing-galeria-numero {
+  flex-shrink: 0;
+}
+
+.landing-centro {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+/* Preguntas frecuentes */
+.landing-faq {
+  display: grid;
+  gap: 12px;
+  max-width: 820px;
+  margin: 0 auto;
+}
+.landing-faq details {
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.landing-faq summary {
+  cursor: pointer;
+  padding: 18px 20px;
+  color: var(--texto);
+  font-size: 16px;
+  font-weight: 800;
+  list-style: none;
+}
+.landing-faq summary::-webkit-details-marker {
+  display: none;
+}
+.landing-faq summary::after {
+  content: "+";
+  float: right;
+  color: var(--azul-claro);
+  font-weight: 900;
+}
+.landing-faq details[open] summary::after {
+  content: "–";
+}
+.landing-faq details p {
+  margin: 0;
+  padding: 0 20px 18px;
+  color: var(--gris);
+  line-height: 1.6;
+}
+
+@media (max-width: 1000px) {
+  .landing-pasos {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .landing-numeros {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .landing-instalar,
+  .landing-pasos {
+    grid-template-columns: 1fr;
+  }
+  .landing-hero-cta .landing-boton {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* Accesibilidad: texto arriba y tres capturas del modo accesible abajo */
+.landing-accesibilidad {
+  flex-wrap: wrap;
+}
+.landing-accesibilidad .landing-lista {
+  margin-top: 18px;
+}
+.landing-accesibilidad-capturas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 40px;
+  width: 100%;
+  margin-top: 30px;
+}
+.landing-accesibilidad-capturas .landing-oscuro-item {
+  margin: 0;
+  transform: none;
+}
