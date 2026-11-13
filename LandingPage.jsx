@@ -162,7 +162,7 @@ function BotonPlay({ claro = false, texto = "Descargar gratis en Google Play" })
       clase={`landing-boton${claro ? " landing-boton-claro" : ""}`}
       icono={<IconoTienda />}
       texto={texto}
-      detalle="Android · Gratis para empezar"
+      detalle="Android · Descarga y uso gratis"
     />
   );
 }
@@ -191,15 +191,17 @@ const PLANES = [
   {
     id: "gratis",
     nombre: "Gratis",
-    precio: "$0",
-    periodo: "para siempre",
-    resumen: "Todo lo que necesitás para tu primer CV.",
+    precio: "Uso gratis",
+    periodo: "",
+    resumen: "Creás, analizás y descargás tus CV sin pagar.",
     incluye: [
-      "Versión ATS + 2 diseños por área",
-      "1 diseño de la biblioteca a elección",
-      "Analizador del CV ilimitado, sin internet",
+      "Más de 30 plantillas: ATS + 2 diseños por área",
+      "Descarga de tus CV en PDF, sin marcas de agua",
+      "Análisis y recomendaciones para tu CV",
+      "Armado y orden automático de las secciones",
+      "Chat de ayuda con historial de recomendaciones",
+      "Modo accesible completo",
       "Un análisis con IA de regalo",
-      "PDF sin marcas de agua",
     ],
   },
   {
@@ -210,7 +212,7 @@ const PLANES = [
     resumen: "Todos los diseños y la IA para pulir tu CV.",
     destacado: true,
     incluye: [
-      "Las 77 plantillas, sin corona ni velo",
+      "Todos los diseños premium, sin corona",
       "Toda la biblioteca de diseños",
       "5 \"Analizar y potenciar\" con IA por mes",
       "Exportá también en Word (.docx)",
@@ -245,10 +247,25 @@ const PLANES = [
   },
 ];
 
+const GRATIS = [
+  { t: "Descarga de tus CV", d: "Tus CV en PDF, todas las veces que quieras, sin marcas de agua." },
+  { t: "Más de 30 plantillas", d: "La versión ATS y dos diseños por cada una de las 11 áreas, más uno de la biblioteca." },
+  { t: "Experiencia mejorada", d: "3 preguntas y la app te muestra solo los campos y ejemplos que te sirven." },
+  { t: "Armado y orden automático", d: "Las secciones se acomodan solas y sabés cuántas hojas ocupa tu CV." },
+  { t: "Análisis de tu CV", d: "Lo que ya está bien, ideas para sumar y palabras clave de tu área." },
+  { t: "Recomendaciones", d: "Consejos concretos con ejemplos: listas, tarjetas, logros y más." },
+  { t: "Chat de ayuda", d: "Hablá con el equipo y guardá el historial de recomendaciones y novedades." },
+  { t: "Encuestas y comunidad", d: "Votá diseños y opiná sobre lo que viene." },
+  { t: "Perfiles y Mis CVs", d: "Varios perfiles y el historial de todo lo que descargaste." },
+  { t: "Modo accesible", d: "Pensado para TalkBack, completo y sin costo." },
+  { t: "Modo oscuro y 3 idiomas", d: "Español, inglés y portugués, de día o de noche." },
+  { t: "Sin registro", d: "Sin cuentas ni contraseñas: tus datos quedan en tu celular." },
+];
+
 const PREGUNTAS = [
   {
-    p: "¿Es gratis?",
-    r: "Sí. Creás, editás y descargás tus CV en PDF sin pagar, con la versión ATS y dos diseños por área, más el analizador del CV ilimitado. Si querés todos los diseños y la IA, podés pasarte a Premium o Super cuando quieras.",
+    p: "¿Qué puedo hacer gratis?",
+    r: "Casi todo. Usar la app, armar tus perfiles, descargar tus CV en PDF, más de 30 plantillas (la versión ATS y dos diseños por área), el análisis y las recomendaciones de tu CV, el orden automático de las secciones, el chat de ayuda y todo el modo accesible. Premium suma diseños nuevos y la IA, para quien los quiera.",
   },
   {
     p: "¿Tiene publicidad?",
@@ -297,6 +314,7 @@ export default function LandingPage() {
         </a>
         <nav className="landing-barra-enlaces" aria-label="Secciones">
           <a href="#funciones">Funciones</a>
+          <a href="#gratis">Gratis</a>
           <a href="#ia">IA</a>
           <a href="#planes">Planes</a>
           <a href="#preguntas">Preguntas</a>
@@ -336,7 +354,7 @@ export default function LandingPage() {
             </div>
 
             <ul className="landing-chips" aria-label="Ventajas principales">
-              <li>Gratis para empezar</li>
+              <li>Descargá tu CV gratis</li>
               <li>Sin registro</li>
               <li>Sin publicidad</li>
               <li>Tus datos en tu celular</li>
@@ -371,7 +389,7 @@ export default function LandingPage() {
             <li><strong>77</strong><span>diseños de CV</span></li>
             <li><strong>11</strong><span>áreas de trabajo</span></li>
             <li><strong>3</strong><span>idiomas: es · en · pt</span></li>
-            <li><strong>0</strong><span>publicidades</span></li>
+                        <li><strong>+30</strong><span>plantillas gratis</span></li>
           </ul>
         </div>
       </section>
@@ -760,13 +778,40 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ TODO LO QUE ES GRATIS ============ */}
+
+      <section className="landing-siempre" id="gratis" aria-labelledby="landing-gratis-titulo">
+        <div className="landing-siempre-interior">
+          <div className="landing-siempre-cabecera">
+            <span className="landing-etiqueta">USO GRATIS</span>
+            <h2 id="landing-gratis-titulo">Todo esto lo usás sin pagar.</h2>
+            <p>
+              La app y tus CV son gratis. Lo premium es un extra: diseños
+              nuevos y la IA, con pagos chicos, para quien los quiera.
+            </p>
+          </div>
+
+          <ul className="landing-gratis">
+            {GRATIS.map(({ t, d }) => (
+              <li key={t}>
+                <Check />
+                <div>
+                  <h3>{t}</h3>
+                  <p>{d}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       {/* ============ PLANES ============ */}
 
       <section className="landing-experiencia landing-planes-seccion" id="planes" aria-labelledby="landing-planes-titulo">
         <div className="landing-experiencia-interior">
           <div className="landing-experiencia-cabecera">
             <span className="landing-etiqueta">PLANES</span>
-            <h2 id="landing-planes-titulo">Empezá gratis. Pasate a Premium cuando quieras.</h2>
+            <h2 id="landing-planes-titulo">Lo esencial es gratis. Premium suma diseños e IA.</h2>
             <p>
               Sin publicidad y sin letra chica: suscripción mensual por
               Google Play, con "Cancelar suscripción" siempre a la vista.
@@ -1030,7 +1075,7 @@ export default function LandingPage() {
         <p>Tené tu CV listo y potenciado. Descargá CV Belgrano gratis y armalo en minutos.</p>
         <BotonPlay claro texto="Descargar CV Belgrano" />
         <span className="landing-gratuita">
-          CV Belgrano · Gratis para empezar · Sin registro · Sin publicidad · Android
+          CV Belgrano · Uso gratis · Sin registro · Sin publicidad · Android
         </span>
       </section>
 
