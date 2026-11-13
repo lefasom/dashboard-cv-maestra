@@ -1,6 +1,15 @@
 import "./LandingPage.css";
 import logoCV from "./src/assets/cvbelgrano.png";
 
+/* ------------------------------------------------------------------
+   ENLACES DE DESCARGA
+
+   Google Play es el canal principal. El APK queda como alternativa
+   (por ejemplo, para los carteles con QR). Si un enlace está vacío,
+   su botón se muestra sin acción.
+------------------------------------------------------------------ */
+const URL_GOOGLE_PLAY =
+  "https://play.google.com/store/apps/details?id=com.cvbelgrano.app";
 // PEGAR AQUÍ EL ENLACE REAL DE DESCARGA DEL APK.
 const URL_DESCARGA_APK = "";
 
@@ -9,15 +18,25 @@ const URL_DESCARGA_APK = "";
 
    Cada captura tiene un `archivo` en src/assets. Si el archivo existe se
    muestra la imagen; si no, un RECUADRO que dice qué pantalla va ahí
-   (por ejemplo "Mis perfiles") y el nombre exacto del PNG que falta.
+   y el nombre exacto del PNG que falta.
 
    Ya existen: pantalla_app, pantalla_plantillas, pantalla_plantillas_oscuro,
    pantalla_chat, pantalla_pregunta_momento, pantalla_pregunta_area,
    pantalla_pregunta_extras, pantalla_panel_experiencia,
    pantalla_datos_personales.
-   Faltan: pantalla_editor_plantilla, pantalla_vista_ats,
-   pantalla_mis_perfiles, pantalla_mis_cvs, pantalla_accesible_ajustes,
-   pantalla_accesible_plantillas, pantalla_accesible_explorar.
+
+   Faltan (propuestas):
+   - pantalla_vista_hojas.png       → vista previa con la línea roja de hoja
+   - pantalla_explorar_pdf.png      → Explorar CV con el PDF real
+   - pantalla_editor_plantilla.png  → editor: orden de secciones y letra
+   - pantalla_premium_corona.png    → carrusel con corona y velo gris
+   - pantalla_analizador.png        → resultado del analizador básico
+   - pantalla_potenciar_ia.png      → "Analizar y potenciar con IA"
+   - pantalla_tienda_planes.png     → tienda: Gratis, Premium, Super, Ultra
+   - pantalla_mis_perfiles.png      → Mis perfiles
+   - pantalla_mis_cvs.png           → Mis CVs con "Analizar CV"
+   - pantalla_accesible_ajustes.png, pantalla_accesible_plantillas.png,
+     pantalla_accesible_explorar.png → modo accesible
 
    Medida ideal: 724 x 1610, solo la pantalla (sin marco del celular).
 ------------------------------------------------------------------ */
@@ -77,6 +96,17 @@ function IconoDescarga() {
   );
 }
 
+// Triángulo de "play" dentro de un círculo (genérico, sin logo de marca).
+function IconoTienda() {
+  return (
+    <span className="landing-download-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="currentColor" focusable="false">
+        <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+      </svg>
+    </span>
+  );
+}
+
 // Ícono de accesibilidad de Android (Material "accessibility").
 function IconoAccesibilidad() {
   return (
@@ -86,21 +116,38 @@ function IconoAccesibilidad() {
   );
 }
 
-// Botón de descarga (si todavía no hay enlace, se muestra sin acción)
-function BotonDescarga({ claro = false, texto = "Descargar gratis para Android" }) {
-  const clase = `landing-boton${claro ? " landing-boton-claro" : ""}`;
+// Corona de premium.
+function IconoCorona() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+    </svg>
+  );
+}
+
+// Destellos de la IA.
+function IconoDestellos() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M10 2l1.9 5.6L17.5 9.5l-5.6 1.9L10 17l-1.9-5.6L2.5 9.5l5.6-1.9L10 2zm8 10l.9 2.6 2.6.9-2.6.9L18 19l-.9-2.6-2.6-.9 2.6-.9L18 12z" />
+    </svg>
+  );
+}
+
+// Botón genérico: enlace si hay URL, caja sin acción si todavía no hay.
+function Boton({ url, clase, icono, texto, detalle }) {
   const contenido = (
     <>
-      <IconoDescarga />
+      {icono}
       <span>
         {texto}
-        <small>Archivo APK · 100% gratuita</small>
+        <small>{detalle}</small>
       </span>
     </>
   );
 
-  return URL_DESCARGA_APK ? (
-    <a href={URL_DESCARGA_APK} className={clase} target="_blank" rel="noopener noreferrer">
+  return url ? (
+    <a href={url} className={clase} target="_blank" rel="noopener noreferrer">
       {contenido}
     </a>
   ) : (
@@ -108,34 +155,132 @@ function BotonDescarga({ claro = false, texto = "Descargar gratis para Android" 
   );
 }
 
+function BotonPlay({ claro = false, texto = "Descargar gratis en Google Play" }) {
+  return (
+    <Boton
+      url={URL_GOOGLE_PLAY}
+      clase={`landing-boton${claro ? " landing-boton-claro" : ""}`}
+      icono={<IconoTienda />}
+      texto={texto}
+      detalle="Android · Gratis para empezar"
+    />
+  );
+}
+
+function BotonApk() {
+  return (
+    <Boton
+      url={URL_DESCARGA_APK}
+      clase="landing-boton landing-boton-secundario"
+      icono={<IconoDescarga />}
+      texto="Descargar el APK"
+      detalle="Instalación directa desde esta página"
+    />
+  );
+}
+
 const Check = () => (
   <span className="landing-lista-check" aria-hidden="true">✓</span>
 );
 
+/* ------------------------------------------------------------------
+   PLANES (doc 47 del centro de mando). Precios en pesos argentinos;
+   el precio final siempre es el que muestra Google Play.
+------------------------------------------------------------------ */
+const PLANES = [
+  {
+    id: "gratis",
+    nombre: "Gratis",
+    precio: "$0",
+    periodo: "para siempre",
+    resumen: "Todo lo que necesitás para tu primer CV.",
+    incluye: [
+      "Versión ATS + 2 diseños por área",
+      "1 diseño de la biblioteca a elección",
+      "Analizador del CV ilimitado, sin internet",
+      "Un análisis con IA de regalo",
+      "PDF sin marcas de agua",
+    ],
+  },
+  {
+    id: "premium",
+    nombre: "Premium",
+    precio: "$1.500",
+    periodo: "por mes",
+    resumen: "Todos los diseños y la IA para pulir tu CV.",
+    destacado: true,
+    incluye: [
+      "Las 77 plantillas, sin corona ni velo",
+      "Toda la biblioteca de diseños",
+      "5 \"Analizar y potenciar\" con IA por mes",
+      "Exportá también en Word (.docx)",
+      "Funciona 30 días sin conexión",
+    ],
+  },
+  {
+    id: "super",
+    nombre: "Super",
+    precio: "$2.900",
+    periodo: "por mes",
+    resumen: "Para quien se postula todas las semanas.",
+    incluye: [
+      "Todo lo de Premium",
+      "10 \"Analizar y potenciar\" por semana",
+      "Hasta 3 por día, para cada postulación",
+      "Ideal para adaptar el CV a cada aviso",
+    ],
+  },
+  {
+    id: "ultra",
+    nombre: "Ultra",
+    precio: "Muy pronto",
+    periodo: "",
+    resumen: "Tu CV en otros idiomas, traducido con IA.",
+    futuro: true,
+    incluye: [
+      "Todo lo de Super",
+      "Traducción del CV con IA (es · en · pt)",
+      "Para buscar trabajo fuera del país",
+    ],
+  },
+];
+
 const PREGUNTAS = [
   {
-    p: "¿Cuánto cuesta?",
-    r: "Nada. CV Belgrano es gratuita: creás, editás y descargás tus CV en PDF sin pagar.",
+    p: "¿Es gratis?",
+    r: "Sí. Creás, editás y descargás tus CV en PDF sin pagar, con la versión ATS y dos diseños por área, más el analizador del CV ilimitado. Si querés todos los diseños y la IA, podés pasarte a Premium o Super cuando quieras.",
+  },
+  {
+    p: "¿Tiene publicidad?",
+    r: "No, y no la va a tener. CV Belgrano se sostiene solo con las suscripciones de quienes eligen un plan.",
   },
   {
     p: "¿Tengo que crear una cuenta?",
-    r: "No. Abrís la app y empezás. No pedimos correo, contraseña ni registro.",
+    r: "No. Abrís la app y empezás. No pedimos correo ni contraseña. Si te suscribís, el plan queda asociado a tu cuenta de Google Play, así lo recuperás con \"Restaurar compras\" en otro teléfono.",
+  },
+  {
+    p: "¿Cómo cancelo la suscripción?",
+    r: "Desde Ajustes → CV Belgrano Premium → \"Cancelar suscripción\", o desde Google Play. El botón está siempre a la vista. Los PDF que ya descargaste son tuyos y se quedan en tu celular.",
+  },
+  {
+    p: "¿Qué hace \"Analizar y potenciar con IA\"?",
+    r: "Revisa tu CV y te propone una versión mejor redactada: logros con números, verbos de acción y palabras clave de tu área. Vos ves los cambios, los aplicás si te gustan y podés volver a la versión anterior.",
+  },
+  {
+    p: "¿Qué datos se envían a la IA?",
+    r: "Solo el texto de tu CV: nunca tu foto ni tus datos de contacto. Te pedimos permiso la primera vez y la app avisa que hace falta internet. El analizador gratis, en cambio, funciona sin conexión y no envía nada.",
   },
   {
     p: "¿Dónde quedan mis datos?",
-    r: "En tu celular. Tus perfiles y tus CV se guardan en el teléfono, no en una cuenta en internet.",
-  },
-  {
-    p: "¿Sirve si es mi primer CV?",
-    r: "Sí. Elegís \"es mi primer CV\" y la app te muestra solo los campos que te sirven, con ejemplos para completar cada parte.",
+    r: "En tu celular. Tus perfiles y tus CV se guardan en el teléfono, no en una cuenta en internet. Premium sigue funcionando hasta 30 días sin conexión.",
   },
   {
     p: "¿Los CV pasan los filtros automáticos de las empresas?",
-    r: "Cada área tiene una versión ATS: un diseño simple y limpio, pensado para que los sistemas de selección lean bien tu información.",
+    r: "Cada área tiene una versión ATS, gratis: un diseño simple y limpio, pensado para que los sistemas de selección lean bien tu información.",
   },
   {
-    p: "¿Por qué se descarga como APK?",
-    r: "Es la versión inicial para Android. Descargás el archivo, lo abrís y lo instalás en un minuto. Más abajo te mostramos cómo.",
+    p: "¿Sirve si es mi primer CV?",
+    r: "Sí. Elegís \"es mi primer CV\" y la app te muestra solo los campos que te sirven, con ejemplos. El analizador te sugiere listas y tarjetas para destacar cursos, proyectos o voluntariados.",
   },
 ];
 
@@ -143,9 +288,25 @@ export default function LandingPage() {
   return (
     <main className="landing-page">
 
+      {/* ============ BARRA SUPERIOR ============ */}
+
+      <header className="landing-barra">
+        <a href="#inicio" className="landing-barra-marca">
+          <img src={logoCV} alt="" width="36" height="36" />
+          <span>CV Belgrano</span>
+        </a>
+        <nav className="landing-barra-enlaces" aria-label="Secciones">
+          <a href="#funciones">Funciones</a>
+          <a href="#ia">IA</a>
+          <a href="#planes">Planes</a>
+          <a href="#preguntas">Preguntas</a>
+        </nav>
+        <a href="#descargar" className="landing-barra-boton">Descargar</a>
+      </header>
+
       {/* ============ HERO ============ */}
 
-      <section className="landing-hero">
+      <section className="landing-hero" id="inicio">
         <div className="landing-contenido">
           <div className="landing-identidad">
             <img src={logoCV} alt="Logo de CV Belgrano" className="landing-logo" />
@@ -160,24 +321,25 @@ export default function LandingPage() {
 
             <h2>
               Armá un CV que te represente
-              <span> y tenelo listo para la próxima oportunidad.</span>
+              <span> y potencialo con IA.</span>
             </h2>
 
             <p>
               Respondés 3 preguntas, completás tus datos con ejemplos de tu
-              área y elegís entre más de 60 diseños. En minutos tenés tu
-              currículum en PDF, listo para enviar por WhatsApp o por mail.
+              área y elegís entre 77 diseños. La app revisa tu CV, te dice
+              qué mejorar y, con un toque, lo potencia con IA. Lo que ves es
+              exactamente lo que sale en el PDF.
             </p>
 
             <div className="landing-hero-cta">
-              <BotonDescarga />
+              <BotonPlay />
             </div>
 
             <ul className="landing-chips" aria-label="Ventajas principales">
-              <li>Gratis</li>
+              <li>Gratis para empezar</li>
               <li>Sin registro</li>
-              <li>Tus datos quedan en tu celular</li>
-              <li>PDF en un toque</li>
+              <li>Sin publicidad</li>
+              <li>Tus datos en tu celular</li>
             </ul>
           </div>
         </div>
@@ -206,10 +368,10 @@ export default function LandingPage() {
       <section className="landing-franja" aria-label="CV Belgrano en números">
         <div className="landing-franja-interior">
           <ul className="landing-numeros">
-            <li><strong>66</strong><span>plantillas</span></li>
+            <li><strong>77</strong><span>diseños de CV</span></li>
             <li><strong>11</strong><span>áreas de trabajo</span></li>
-            <li><strong>3</strong><span>preguntas para empezar</span></li>
-            <li><strong>$0</strong><span>siempre gratis</span></li>
+            <li><strong>3</strong><span>idiomas: es · en · pt</span></li>
+            <li><strong>0</strong><span>publicidades</span></li>
           </ul>
         </div>
       </section>
@@ -225,15 +387,19 @@ export default function LandingPage() {
             </h2>
             <p>
               Armar un currículum desde cero cuesta: qué poner, cómo
-              ordenarlo, qué diseño usar. CV Belgrano resuelve todo eso
-              desde el celular.
+              ordenarlo, qué diseño usar y si está bien escrito. CV Belgrano
+              resuelve todo eso desde el celular.
             </p>
           </div>
 
-          <div className="landing-siempre-columnas">
+          <div className="landing-siempre-columnas landing-columnas-cuatro">
             <div>
               <h3>"No sé qué escribir"</h3>
               <p>Te damos ejemplos pensados para tu área en cada sección.</p>
+            </div>
+            <div>
+              <h3>"No sé si está bien"</h3>
+              <p>El analizador te dice qué ya está bien y qué podés sumar.</p>
             </div>
             <div>
               <h3>"No tengo computadora"</h3>
@@ -249,7 +415,7 @@ export default function LandingPage() {
 
       {/* ============ CÓMO FUNCIONA ============ */}
 
-      <section className="landing-experiencia" aria-labelledby="landing-pasos-titulo">
+      <section className="landing-experiencia" id="funciones" aria-labelledby="landing-pasos-titulo">
         <div className="landing-experiencia-interior">
           <div className="landing-experiencia-cabecera">
             <span className="landing-etiqueta">CÓMO FUNCIONA</span>
@@ -276,14 +442,14 @@ export default function LandingPage() {
               <span className="landing-galeria-numero">3</span>
               <div>
                 <h3>Elegí tu diseño</h3>
-                <p>Probalos con tus datos y quedate con el que más te guste.</p>
+                <p>Probalos con tus datos y mirá cuántas hojas ocupa.</p>
               </div>
             </li>
             <li>
               <span className="landing-galeria-numero">4</span>
               <div>
-                <h3>Descargá y enviá</h3>
-                <p>Tu CV en PDF, listo para WhatsApp, mail o imprimir.</p>
+                <h3>Descargá y potenciá</h3>
+                <p>Tu PDF listo para enviar, analizado y mejorado con IA.</p>
               </div>
             </li>
           </ol>
@@ -329,7 +495,7 @@ export default function LandingPage() {
               <figcaption>
                 <span className="landing-galeria-numero">2</span>
                 <strong>Tu área de trabajo</strong>
-                <span>Atención al cliente, tecnología, salud, deportes, oficios y más.</span>
+                <span>Atención al cliente, tecnología, salud, gastronomía, oficios y más.</span>
               </figcaption>
             </figure>
 
@@ -400,36 +566,56 @@ export default function LandingPage() {
           <ul className="landing-lista">
             <li><Check />Secciones desplegables para no perderte</li>
             <li><Check />Ejemplos que te guían mientras escribís</li>
-            <li><Check />Plantillas recomendadas para tu rubro</li>
+            <li><Check />Listas y tarjetas propias para destacarte</li>
             <li><Check />Administrá tu experiencia mejorada cuando quieras</li>
           </ul>
         </div>
       </section>
 
-      {/* ============ PLANTILLAS ============ */}
+      {/* ============ LO QUE VES ES LO QUE SALE (PAGINACIÓN EXACTA) ============ */}
 
-      <section className="landing-oscuro landing-plantillas" aria-labelledby="landing-plantillas-titulo">
+      <section className="landing-oscuro" aria-labelledby="landing-hojas-titulo">
         <div className="landing-oscuro-texto">
-          <span className="landing-etiqueta">DISEÑOS QUE SE NOTAN</span>
-          <h2 id="landing-plantillas-titulo">
-            66 plantillas pensadas para cada área de trabajo.
-          </h2>
+          <span className="landing-etiqueta">SIN SORPRESAS EN EL PDF</span>
+          <h2 id="landing-hojas-titulo">Lo que ves es exactamente lo que sale.</h2>
           <p>
-            Atención al cliente, tecnología, salud, oficios, deportes y
-            más: cada área tiene sus propios diseños y una versión ATS,
-            simple y limpia, para que los sistemas de selección lean bien
-            tu información.
+            La vista previa marca con una línea dónde termina cada hoja,
+            y el PDF sale igual: si dice "1 hoja", tu CV entra en una
+            hoja. Si se pasa, la app te sugiere achicar la letra o
+            reordenar secciones.
           </p>
           <ul className="landing-lista">
-            <li><Check />Cambiás de diseño sin volver a escribir nada</li>
-            <li><Check />Ordenás y ocultás secciones a tu gusto</li>
-            <li><Check />Ajustás el tamaño de letra para que entre todo</li>
-            <li><Check />Vista previa real antes de descargar</li>
+            <li><Check />Línea de corte de hoja en la vista previa</li>
+            <li><Check />Misma medida en la vista previa, el modo accesible y el PDF</li>
+            <li><Check />"Explorar CV" con el PDF real de cada descarga</li>
           </ul>
         </div>
 
         <div className="landing-oscuro-telefonos">
           <figure className="landing-oscuro-item landing-oscuro-item-uno">
+            <Captura
+              archivo="pantalla_vista_hojas.png"
+              titulo="Vista previa · línea de hoja"
+              detalle="La línea roja marca el final de cada hoja"
+            />
+            <figcaption>Sabés cuántas hojas ocupa</figcaption>
+          </figure>
+          <figure className="landing-oscuro-item landing-oscuro-item-dos">
+            <Captura
+              archivo="pantalla_explorar_pdf.png"
+              titulo="Explorar CV · PDF real"
+              detalle="La estructura arriba y el PDF descargado abajo"
+            />
+            <figcaption>Mirá el PDF tal como lo enviaste</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      {/* ============ PLANTILLAS ============ */}
+
+      <section className="landing-formularios" aria-labelledby="landing-plantillas-titulo">
+        <div className="landing-formularios-telefonos">
+          <figure className="landing-formularios-item">
             <Captura
               archivo="pantalla_editor_plantilla.png"
               titulo="Editor de plantilla"
@@ -437,13 +623,97 @@ export default function LandingPage() {
             />
             <figcaption>Personalizá cada detalle</figcaption>
           </figure>
+          <figure className="landing-formularios-item landing-formularios-item-dos">
+            <Captura
+              archivo="pantalla_premium_corona.png"
+              titulo="Plantillas · gratis y premium"
+              detalle="Los diseños premium llevan una corona"
+            />
+            <figcaption>Gratis primero, premium con corona</figcaption>
+          </figure>
+        </div>
+
+        <div className="landing-formularios-texto">
+          <span className="landing-etiqueta">DISEÑOS QUE SE NOTAN</span>
+          <h2 id="landing-plantillas-titulo">
+            77 plantillas pensadas para cada área de trabajo.
+          </h2>
+          <p>
+            Cada una de las 11 áreas tiene su versión ATS y cinco diseños
+            propios, y la biblioteca suma 11 diseños más. Con el plan
+            gratis usás la versión ATS y dos diseños por área; con Premium
+            se abren todos los que llevan corona.
+          </p>
+          <ul className="landing-lista">
+            <li><Check />Cambiás de diseño sin volver a escribir nada</li>
+            <li><Check />Ordenás y ocultás secciones a tu gusto</li>
+            <li><Check />Ajustás el tamaño de letra para que entre todo</li>
+            <li><Check />Versión ATS gratis en todas las áreas</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* ============ ANALIZADOR + IA ============ */}
+
+      <section className="landing-oscuro landing-ia" id="ia" aria-labelledby="landing-ia-titulo">
+        <div className="landing-oscuro-texto">
+          <span className="landing-etiqueta landing-etiqueta-dorada">
+            <span className="landing-etiqueta-icono"><IconoDestellos /></span>
+            ANALIZAR Y POTENCIAR
+          </span>
+          <h2 id="landing-ia-titulo">Tu CV revisado y mejorado, en un toque.</h2>
+          <p>
+            Cada CV que descargás se puede analizar. La app te dice, con
+            palabras simples, qué ya está bien y qué podés sumar. Y con
+            "Analizar y potenciar con IA", te propone una versión más
+            fuerte, lista para aplicar.
+          </p>
+
+          <div className="landing-ia-tarjetas">
+            <div className="landing-ia-tarjeta">
+              <span className="landing-ia-tag">GRATIS · SIN INTERNET</span>
+              <h3>Analizador del CV</h3>
+              <ul className="landing-lista landing-lista-chica">
+                <li><Check />Logros sin números y frases débiles</li>
+                <li><Check />Verbos de acción y fechas que no cierran</li>
+                <li><Check />Palabras clave de tu área</li>
+                <li><Check />Cuántas hojas ocupa tu CV</li>
+              </ul>
+            </div>
+            <div className="landing-ia-tarjeta landing-ia-tarjeta-dorada">
+              <span className="landing-ia-tag">PREMIUM · CON IA</span>
+              <h3>Potenciar con IA</h3>
+              <ul className="landing-lista landing-lista-chica">
+                <li><Check />Reescribe tu experiencia con logros claros</li>
+                <li><Check />Suma las palabras clave que buscan las empresas</li>
+                <li><Check />Aplicás los cambios que te gusten</li>
+                <li><Check />"Volver al anterior" cuando quieras</li>
+              </ul>
+            </div>
+          </div>
+
+          <p className="landing-oscuro-nota">
+            A la IA solo va el texto del CV: nunca tu foto ni tus datos de
+            contacto. Te pedimos permiso antes del primer uso.
+          </p>
+        </div>
+
+        <div className="landing-oscuro-telefonos">
+          <figure className="landing-oscuro-item landing-oscuro-item-uno">
+            <Captura
+              archivo="pantalla_analizador.png"
+              titulo="Analizador del CV"
+              detalle="Lo que ya está bien e ideas para sumar"
+            />
+            <figcaption>Ideas claras, sin puntajes</figcaption>
+          </figure>
           <figure className="landing-oscuro-item landing-oscuro-item-dos">
             <Captura
-              archivo="pantalla_vista_ats.png"
-              titulo="Vista previa del CV · versión ATS"
-              detalle="Diseño simple, listo para filtros automáticos"
+              archivo="pantalla_potenciar_ia.png"
+              titulo="Analizar y potenciar con IA"
+              detalle="Antes y después, listo para aplicar"
             />
-            <figcaption>Versión ATS en cada área</figcaption>
+            <figcaption>Tu CV potenciado con IA</figcaption>
           </figure>
         </div>
       </section>
@@ -464,7 +734,7 @@ export default function LandingPage() {
             <Captura
               archivo="pantalla_mis_cvs.png"
               titulo="Mis CVs · descargas"
-              detalle="Todos tus PDF en un solo lugar"
+              detalle="Tus PDF con el botón Analizar CV"
             />
             <figcaption>Tus CV siempre a mano</figcaption>
           </figure>
@@ -477,14 +747,72 @@ export default function LandingPage() {
           </h2>
           <p>
             Guardá varios perfiles (por ejemplo, uno para atención al
-            cliente y otro para administración) y todos los PDF que
-            descargues. Cuando aparece una oportunidad, tu CV ya está ahí.
+            cliente y otro para administración) y todos los CV que
+            descargues. Cuando aparece una oportunidad, tu CV ya está ahí,
+            en PDF o en Word.
           </p>
           <ul className="landing-lista">
             <li><Check />Varios perfiles en la misma app</li>
-            <li><Check />Historial de CV descargados en "Mis CVs"</li>
-            <li><Check />Actualizás un dato y descargás la versión nueva</li>
+            <li><Check />Historial de descargas en "Mis CVs"</li>
+            <li><Check />PDF gratis y Word (.docx) con Premium</li>
+            <li><Check />Respaldo de tus datos para cambiar de teléfono</li>
           </ul>
+        </div>
+      </section>
+
+      {/* ============ PLANES ============ */}
+
+      <section className="landing-experiencia landing-planes-seccion" id="planes" aria-labelledby="landing-planes-titulo">
+        <div className="landing-experiencia-interior">
+          <div className="landing-experiencia-cabecera">
+            <span className="landing-etiqueta">PLANES</span>
+            <h2 id="landing-planes-titulo">Empezá gratis. Pasate a Premium cuando quieras.</h2>
+            <p>
+              Sin publicidad y sin letra chica: suscripción mensual por
+              Google Play, con "Cancelar suscripción" siempre a la vista.
+            </p>
+          </div>
+
+          <div className="landing-planes">
+            {PLANES.map((plan) => (
+              <article
+                key={plan.id}
+                className={`landing-plan${plan.destacado ? " landing-plan-destacado" : ""}${plan.futuro ? " landing-plan-futuro" : ""}`}
+                aria-labelledby={`plan-${plan.id}`}
+              >
+                {plan.destacado && <span className="landing-plan-cinta">Recomendado</span>}
+                <h3 id={`plan-${plan.id}`}>
+                  {plan.id !== "gratis" && (
+                    <span className="landing-plan-corona"><IconoCorona /></span>
+                  )}
+                  {plan.nombre}
+                </h3>
+                <p className="landing-plan-precio">
+                  <strong>{plan.precio}</strong>
+                  {plan.periodo && <span>{plan.periodo}</span>}
+                </p>
+                <p className="landing-plan-resumen">{plan.resumen}</p>
+                <ul className="landing-lista landing-lista-chica">
+                  {plan.incluye.map((item) => (
+                    <li key={item}><Check />{item}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+
+          <ul className="landing-garantias" aria-label="Condiciones de los planes">
+            <li>Cancelás cuando quieras</li>
+            <li>Los PDF descargados son tuyos</li>
+            <li>Restaurar compras en otro teléfono</li>
+            <li>Cupones de descuento</li>
+          </ul>
+          <p className="landing-planes-nota">
+            Precios en pesos argentinos, con renovación mensual. El precio
+            final es el que muestra Google Play al suscribirte. Para
+            suscribirte tenés que ser mayor de 18 años o tener permiso de
+            tu madre, padre o tutor.
+          </p>
         </div>
       </section>
 
@@ -496,12 +824,12 @@ export default function LandingPage() {
             <span className="landing-etiqueta">SIMPLE Y PRIVADA</span>
             <h2 id="landing-privacidad-titulo">Tu información es tuya.</h2>
             <p>
-              Sin cuentas, sin contraseñas y sin pagos. Tus datos
+              Sin cuentas, sin contraseñas y sin publicidad. Tus datos
               personales se guardan en tu celular.
             </p>
           </div>
 
-          <div className="landing-siempre-columnas">
+          <div className="landing-siempre-columnas landing-columnas-cuatro">
             <div>
               <h3>Sin registro</h3>
               <p>Abrís la app y empezás. No te pedimos correo ni contraseña.</p>
@@ -509,6 +837,10 @@ export default function LandingPage() {
             <div>
               <h3>En tu celular</h3>
               <p>Tus perfiles y tus CV quedan guardados en el teléfono.</p>
+            </div>
+            <div>
+              <h3>Sin publicidad</h3>
+              <p>Nada de anuncios entre vos y tu próximo trabajo.</p>
             </div>
             <div>
               <h3>En tu idioma</h3>
@@ -526,12 +858,13 @@ export default function LandingPage() {
           <h2 id="landing-oscuro-titulo">Una app que crece con vos, de día o de noche.</h2>
           <p>
             Desde el chat de ayuda hablás con el equipo, recibís
-            novedades y votás en encuestas cortas. Tu opinión decide qué
-            mejoramos. Y con el modo oscuro, todo se ve cómodo a
-            cualquier hora.
+            novedades y votás en encuestas cortas. Tu conversación vuelve
+            aunque reinstales la app. Y con el modo oscuro, todo se ve
+            cómodo a cualquier hora.
           </p>
           <ul className="landing-lista">
-            <li><Check />Chat de ayuda dentro de la app</li>
+            <li><Check />Chat de ayuda en tu idioma</li>
+            <li><Check />Tu chat se recupera al reinstalar</li>
             <li><Check />Encuestas para opinar sobre los diseños</li>
             <li><Check />Modo oscuro en toda la aplicación</li>
           </ul>
@@ -563,32 +896,33 @@ export default function LandingPage() {
 
       {/* ============ ACCESIBILIDAD ============ */}
 
-      <section className="landing-accesibilidad">
+      <section className="landing-accesibilidad" aria-labelledby="landing-accesibilidad-titulo">
         <div className="landing-accesibilidad-icono" aria-hidden="true">
           <IconoAccesibilidad />
         </div>
 
         <div className="landing-accesibilidad-texto">
           <span className="landing-etiqueta">DISEÑADA PARA TODOS</span>
-          <h2>
+          <h2 id="landing-accesibilidad-titulo">
             La accesibilidad no es una función adicional. Es parte de la
             experiencia.
           </h2>
           <p>
             CV Belgrano tiene un modo accesible pensado para quienes usan
-            lectores de pantalla como TalkBack: podés crear, organizar y
-            descargar tus currículums sin depender de elementos visuales.
+            lectores de pantalla como TalkBack: podés crear, organizar,
+            analizar y descargar tus currículums sin depender de
+            elementos visuales.
           </p>
           <p>
             Porque todas las personas merecen las mismas oportunidades
             para construir su futuro laboral.
           </p>
           <ul className="landing-lista">
-            <li><Check />Se activa solo con TalkBack o desde Ajustes ("Modo accesible")</li>
+            <li><Check />Se activa solo con TalkBack o desde Ajustes</li>
             <li><Check />Plantillas en 3 pasos, con el diseño descrito en palabras</li>
-            <li><Check />"Explorar CV": escuchá tu currículum antes de descargarlo</li>
-            <li><Check />Botones grandes y avisos en español, inglés y portugués</li>
-            <li><Check />Mismas plantillas y mismas funciones: la accesibilidad no se cobra</li>
+            <li><Check />"Explorar CV": escuchá tu currículum antes de enviarlo</li>
+            <li><Check />El analizador y los planes se leen por bloques cortos</li>
+            <li><Check />La accesibilidad no se cobra: es igual en todos los planes</li>
           </ul>
         </div>
 
@@ -620,25 +954,32 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ============ CÓMO INSTALAR EL APK ============ */}
+      {/* ============ DESCARGA ============ */}
 
-      <section className="landing-siempre" aria-labelledby="landing-instalar-titulo">
+      <section className="landing-siempre" id="descargar" aria-labelledby="landing-instalar-titulo">
         <div className="landing-siempre-interior">
           <div className="landing-siempre-cabecera">
             <span className="landing-etiqueta">INSTALALA EN 1 MINUTO</span>
-            <h2 id="landing-instalar-titulo">Cómo instalar CV Belgrano en Android.</h2>
+            <h2 id="landing-instalar-titulo">Descargá CV Belgrano en tu Android.</h2>
             <p>
-              La versión inicial se descarga como archivo APK, directo
-              desde esta página.
+              Desde Google Play, en un toque. Si preferís, también podés
+              instalar el archivo APK directo desde esta página.
             </p>
           </div>
+
+          <div className="landing-descargas">
+            <BotonPlay />
+            <BotonApk />
+          </div>
+
+          <h3 className="landing-subtitulo">¿Elegiste el APK? Así se instala:</h3>
 
           <ol className="landing-instalar">
             <li>
               <span className="landing-galeria-numero">1</span>
               <div>
                 <h3>Descargá el archivo</h3>
-                <p>Tocá "Descargar gratis para Android" desde tu celular.</p>
+                <p>Tocá "Descargar el APK" desde tu celular.</p>
               </div>
             </li>
             <li>
@@ -647,7 +988,7 @@ export default function LandingPage() {
                 <h3>Abrilo e instalá</h3>
                 <p>
                   Si Android te lo pide, permití instalar apps de esta
-                  fuente. Es un paso normal para apps fuera del Play Store.
+                  fuente. Es un paso normal fuera de Google Play.
                 </p>
               </div>
             </li>
@@ -659,16 +1000,12 @@ export default function LandingPage() {
               </div>
             </li>
           </ol>
-
-          <div className="landing-centro">
-            <BotonDescarga />
-          </div>
         </div>
       </section>
 
       {/* ============ PREGUNTAS FRECUENTES ============ */}
 
-      <section className="landing-experiencia" aria-labelledby="landing-faq-titulo">
+      <section className="landing-experiencia" id="preguntas" aria-labelledby="landing-faq-titulo">
         <div className="landing-experiencia-interior">
           <div className="landing-experiencia-cabecera">
             <span className="landing-etiqueta">PREGUNTAS FRECUENTES</span>
@@ -690,10 +1027,10 @@ export default function LandingPage() {
 
       <section className="landing-cierre">
         <h2>Tu próxima oportunidad puede llegar hoy.</h2>
-        <p>Tené tu CV listo. Descargá CV Belgrano gratis y armalo en minutos.</p>
-        <BotonDescarga claro texto="Descargar CV Belgrano" />
+        <p>Tené tu CV listo y potenciado. Descargá CV Belgrano gratis y armalo en minutos.</p>
+        <BotonPlay claro texto="Descargar CV Belgrano" />
         <span className="landing-gratuita">
-          CV Belgrano · Gratis · Sin registro · Android
+          CV Belgrano · Gratis para empezar · Sin registro · Sin publicidad · Android
         </span>
       </section>
 
