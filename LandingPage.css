@@ -1968,3 +1968,125 @@
     text-align: center;
   }
 }
+
+/* ---------- Selector de idioma (barra superior) ---------- */
+.landing-barra-acciones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.landing-idioma {
+  position: relative;
+}
+
+.landing-idioma-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--texto);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.landing-idioma-boton:hover,
+.landing-idioma-boton[aria-expanded="true"] {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(96, 165, 250, 0.7);
+}
+
+.landing-idioma-boton:focus-visible,
+.landing-idioma-menu button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.landing-idioma-boton svg {
+  width: 17px;
+  height: 17px;
+  color: var(--azul-claro);
+}
+
+.landing-idioma-flecha {
+  color: var(--gris);
+  font-size: 11px;
+}
+
+.landing-idioma-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  min-width: 170px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.55);
+}
+
+.landing-idioma-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.landing-idioma-menu button:hover {
+  background: rgba(59, 130, 246, 0.14);
+}
+
+.landing-idioma-menu button.activo {
+  background: rgba(59, 130, 246, 0.24);
+  color: #ffffff;
+}
+
+.landing-idioma-codigo {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(96, 165, 250, 0.16);
+  color: var(--azul-claro);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 700px) {
+  .landing-barra-acciones {
+    gap: 8px;
+  }
+
+  .landing-idioma-boton {
+    height: 36px;
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .landing-barra-marca span {
+    display: none;
+  }
+}
