@@ -506,14 +506,20 @@ service cloud.firestore {
 
     // Control de versiones: la app (sin sesión) lee por id, solo el
     // dashboard (con sesión) escribe. Se acepta únicamente `versiones`
-    // (lista, máx. 200 entradas) y `actualizadoEn`.
+    // (lista, máx. 200 entradas), `actualizadoEn` y, desde el 13/11/2026,
+    // `diasSinConexion` (opcional, entero entre 7 y 365: cada cuántos días
+    // la app exige conectarse; si falta, la app usa 30).
     match /dashboard_config/versiones {
       allow get: if true;
 
       allow create, update: if request.auth != null
-        && request.resource.data.keys().hasOnly(['versiones', 'actualizadoEn'])
+        && request.resource.data.keys().hasOnly(['versiones', 'actualizadoEn', 'diasSinConexion'])
         && request.resource.data.get('versiones', []) is list
-        && request.resource.data.get('versiones', []).size() <= 200;
+        && request.resource.data.get('versiones', []).size() <= 200
+        && (!('diasSinConexion' in request.resource.data)
+            || (request.resource.data.diasSinConexion is int
+                && request.resource.data.diasSinConexion >= 7
+                && request.resource.data.diasSinConexion <= 365));
 
       allow delete: if request.auth != null;
     }

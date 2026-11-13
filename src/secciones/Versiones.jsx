@@ -22,6 +22,12 @@
 //             Si solo te equivocaste en una fecha, usá Editar.
 //
 // Fechas en formato AAAA-MM-DD (el mismo que lee la app).
+//
+// Días sin conexión (13/11/2026): `diasSinConexion` en dashboard_config/
+// versiones dice cada cuántos días la app exige conectarse a internet
+// (entre 7 y 365; si falta, la app usa 30). Se edita en su propio panel.
+// Por eso TODAS las escrituras de este documento usan { merge: true }: sin
+// merge, guardar una versión borraba `diasSinConexion`.
 
 import {
   deleteField,
@@ -40,6 +46,11 @@ const REF_HISTORIAL = doc(db, "dashboard_config", "versiones_historial");
 
 const DIA = 24 * 60 * 60 * 1000;
 const MAX_VERSIONES = 200;
+
+// Mismos límites que la app (versionesService.ts) y que firestore.rules
+const DIAS_MIN = 7;
+const DIAS_MAX = 365;
+const DIAS_POR_DEFECTO = 30;
 
 // ------------------------------------------------------------
 // FECHAS
@@ -235,6 +246,12 @@ export default function Versiones() {
   const [borrando, setBorrando] = useState(null); // versión eliminándose
   const [mensaje, setMensaje] = useState(null); // { tipo: "ok" | "error", texto }
 
+  // Días sin conexión: valor guardado (null = no hay, la app usa 30)
+  const [diasGuardados, setDiasGuardados] = useState(null);
+  const [diasTexto, setDiasTexto] = useState("");
+  const [guardandoDias, setGuardandoDias] = useState(false);
+  const [mensajeDias, setMensajeDias] = useState(null);
+
   const archivando = useRef(false);
   const formRef = useRef(null);
 
@@ -248,6 +265,9 @@ export default function Versiones() {
       (snap) => {
         const datos = snap.exists() ? snap.data().versiones : [];
         setLista(Array.isArray(datos) ? datos.filter(entradaValida) : []);
+
+        const dias = snap.exists() ? snap.data().diasSinConexion : undefined;
+        setDiasGuardados(Number.isInteger(dias) ? dias : null);
       },
       (err) => setError(err.message)
     );
@@ -387,10 +407,15 @@ export default function Versiones() {
     setGuardando(true);
 
     try {
-      await setDoc(REF_VERSIONES, {
-        versiones: [...resto, { version, lanzamiento, vencimiento }],
-        actualizadoEn: serverTimestamp(),
-      });
+      // merge: no borrar diasSinConexion
+      await setDoc(
+        REF_VERSIONES,
+        {
+          versiones: [...resto, { version, lanzamiento, vencimiento }],
+          actualizadoEn: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
       // Si estaba en el historial y ahora vuelve a ser vigente, se saca de ahí
       if (registros?.[claveDe(version)] && diasHasta(vencimiento) > 0) {
@@ -425,10 +450,15 @@ export default function Versiones() {
       const estaba = (lista ?? []).some((v) => v.version === version);
 
       if (estaba) {
-        await setDoc(REF_VERSIONES, {
-          versiones: (lista ?? []).filter((v) => v.version !== version),
-          actualizadoEn: serverTimestamp(),
-        });
+        // merge: no borrar diasSinConexion
+        await setDoc(
+          REF_VERSIONES,
+          {
+            versiones: (lista ?? []).filter((v) => v.version !== version),
+            actualizadoEn: serverTimestamp(),
+          },
+          { merge: true }
+        );
       }
 
       if (registros?.[claveDe(version)]) {
@@ -450,6 +480,63 @@ export default function Versiones() {
       irAlFormulario();
     } finally {
       setBorrando(null);
+    }
+  };
+
+  // ---- Días sin conexión -------------------------------------
+
+  const guardarDias = async (e) => {
+    e.preventDefault();
+    setMensajeDias(null);
+
+    const texto = diasTexto.trim();
+    const dias = Number(texto);
+
+    if (!/^\d+$/.test(texto) || dias < DIAS_MIN || dias > DIAS_MAX) {
+      setMensajeDias({
+        tipo: "error",
+        texto: `Escribí un número entero entre ${DIAS_MIN} y ${DIAS_MAX}.`,
+      });
+      return;
+    }
+
+    setGuardandoDias(true);
+
+    try {
+      await setDoc(
+        REF_VERSIONES,
+        { diasSinConexion: dias, actualizadoEn: serverTimestamp() },
+        { merge: true }
+      );
+      setDiasTexto("");
+      setMensajeDias({ tipo: "ok", texto: `Guardado: ${dias} días.` });
+    } catch (err) {
+      setMensajeDias({
+        tipo: "error",
+        texto: `No se pudo guardar: ${err.message}. ¿Ya publicaste en Firebase las reglas nuevas (diasSinConexion)?`,
+      });
+    } finally {
+      setGuardandoDias(false);
+    }
+  };
+
+  const volverAlDefecto = async () => {
+    setMensajeDias(null);
+    setGuardandoDias(true);
+
+    try {
+      await updateDoc(REF_VERSIONES, {
+        diasSinConexion: deleteField(),
+        actualizadoEn: serverTimestamp(),
+      });
+      setMensajeDias({
+        tipo: "ok",
+        texto: `Listo: la app vuelve a usar ${DIAS_POR_DEFECTO} días.`,
+      });
+    } catch (err) {
+      setMensajeDias({ tipo: "error", texto: `No se pudo cambiar: ${err.message}` });
+    } finally {
+      setGuardandoDias(false);
     }
   };
 
@@ -541,6 +628,69 @@ export default function Versiones() {
         {mensaje && (
           <p className={`form-msg ${mensaje.tipo === "ok" ? "ok" : "error"}`}>
             {mensaje.texto}
+          </p>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Días sin conexión</h2>
+        </div>
+
+        <p className="form-nota">
+          Cada cuántos días la app pide conectarse a internet para revisar si
+          su versión venció. Ahora:{" "}
+          <strong>
+            {diasGuardados !== null
+              ? `${diasGuardados} días`
+              : `${DIAS_POR_DEFECTO} días (valor por defecto de la app)`}
+          </strong>
+          .
+        </p>
+
+        <form className="form-version" onSubmit={guardarDias}>
+          <label className="campo">
+            <span>Días (entre {DIAS_MIN} y {DIAS_MAX})</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={DIAS_MIN}
+              max={DIAS_MAX}
+              step="1"
+              placeholder={`Ej: ${DIAS_POR_DEFECTO}`}
+              value={diasTexto}
+              onChange={(e) => setDiasTexto(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
+
+          <div className="form-botones">
+            <button type="submit" disabled={guardandoDias || cargando}>
+              {guardandoDias ? "Guardando…" : "Guardar días"}
+            </button>
+
+            {diasGuardados !== null && (
+              <button
+                type="button"
+                className="btn-claro"
+                disabled={guardandoDias}
+                onClick={volverAlDefecto}
+              >
+                Volver a {DIAS_POR_DEFECTO} días
+              </button>
+            )}
+          </div>
+        </form>
+
+        <p className="form-nota">
+          Menos días controla más seguido el bloqueo por versión; más días
+          deja usar la app más tiempo sin internet. La app aplica el cambio
+          la próxima vez que se conecta.
+        </p>
+
+        {mensajeDias && (
+          <p className={`form-msg ${mensajeDias.tipo === "ok" ? "ok" : "error"}`}>
+            {mensajeDias.texto}
           </p>
         )}
       </section>
