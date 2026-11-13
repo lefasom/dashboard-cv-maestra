@@ -15,7 +15,7 @@ import { COLECCIONES } from "../config";
 const ORDEN = { key: "cantidad", dir: "desc" };
 
 export default function Onboarding() {
-  const { eventos, cargando, error } = useColeccion(COLECCIONES.ONBOARDING);
+  const { eventos, cargando, error, total } = useColeccion(COLECCIONES.ONBOARDING);
 
   const datos = useMemo(() => agruparOnboarding(eventos), [eventos]);
 
@@ -25,6 +25,7 @@ export default function Onboarding() {
         cargando={cargando}
         error={error}
         cantidad={eventos.length}
+        total={total}
       />
 
       <Resumen

@@ -9,9 +9,13 @@
 //   - Después de la carga inicial, Firestore solo cobra los documentos nuevos
 //     o modificados (no vuelve a leer los 5000).
 //   - Al cerrar sesión se cierran todos los listeners y se limpia la memoria.
+//   - Total real (doc 49, punto 3.2): solo si la colección llega al tope de
+//     LIMITE_EVENTOS se pide UNA vez getCountFromServer (1 lectura cada 1.000
+//     documentos, sin bajarlos). Por debajo del tope cuesta 0 lecturas.
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import {
   collection,
+  getCountFromServer,
   limit,
   onSnapshot,
   orderBy,
@@ -21,7 +25,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { LIMITE_EVENTOS } from "../config";
 
-const ESTADO_INICIAL = { eventos: [], cargando: true, error: "" };
+// total: cantidad real en el servidor (null mientras no se llegó al tope)
+const ESTADO_INICIAL = { eventos: [], cargando: true, error: "", total: null };
 
 // nombre de colección -> { estado, oyentes, cancelar }
 const almacen = new Map();
@@ -63,6 +68,17 @@ const iniciar = (nombre) => {
         cargando: false,
         error: "",
       });
+
+      // Llegó al tope: se cuenta el total real una sola vez por sesión.
+      if (snap.size >= LIMITE_EVENTOS && entrada.estado.total === null && !entrada.contando) {
+        entrada.contando = true;
+        getCountFromServer(collection(db, nombre))
+          .then((res) => publicar(entrada, { total: res.data().count }))
+          .catch((err) => console.error(`[${nombre}] No se pudo contar:`, err))
+          .finally(() => {
+            entrada.contando = false;
+          });
+      }
     },
     (err) => {
       // Si falla, se cierra para que se reintente al volver a abrir la pestaña

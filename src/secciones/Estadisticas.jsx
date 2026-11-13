@@ -18,7 +18,7 @@ import {
 import { COLECCIONES } from "../config";
 
 export default function Estadisticas() {
-  const { eventos, cargando, error } = useColeccion(COLECCIONES.PLANTILLAS);
+  const { eventos, cargando, error, total } = useColeccion(COLECCIONES.PLANTILLAS);
 
   // Una fila por plantilla (familia + colección)
   const filas = useMemo(() => agruparPlantillas(eventos), [eventos]);
@@ -38,6 +38,7 @@ export default function Estadisticas() {
         cargando={cargando}
         error={error}
         cantidad={eventos.length}
+        total={total}
       />
 
       <Resumen

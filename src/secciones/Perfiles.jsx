@@ -9,7 +9,7 @@ import { COLUMNAS_PROFESIONES } from "../columnas";
 import { COLECCIONES } from "../config";
 
 export default function Perfiles() {
-  const { eventos, cargando, error } = useColeccion(COLECCIONES.PERFILES);
+  const { eventos, cargando, error, total } = useColeccion(COLECCIONES.PERFILES);
 
   const datos = useMemo(() => agruparPerfiles(eventos), [eventos]);
 
@@ -19,6 +19,7 @@ export default function Perfiles() {
         cargando={cargando}
         error={error}
         cantidad={eventos.length}
+        total={total}
       />
 
       <Resumen
