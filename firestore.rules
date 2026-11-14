@@ -1,3 +1,21 @@
+// =====================================================================
+// firestore.rules — REGLAS VIGENTES DE CV BELGRANO
+// =====================================================================
+//
+// 14/11/2026: se pasó a este archivo el lote L1 a L4 (Tarea 43 §2) para
+// publicarlo en la consola:
+//   L1  diasSinConexion, idiomaOk, sin reseñas
+//   L2  esSoporte() (solo el UID del dashboard) en lugar de
+//       `request.auth != null` (38 lugares)
+//   L3  chats: campo `uids` (solo se agrega la sesión propia)
+//   L4  dashboard_config/app: los modos (pestaña "Administrador general")
+//
+// REGLA DE ORO: este archivo es IGUAL en App-de-cv y en dashboard-cv-maestra.
+// Después de publicarlo, recién ahí se puede habilitar Authentication →
+// Anónimo (doc 51). Lo próximo (L5: premium, compras, cupones,
+// arrepentimientos) se arma en `firestore_lote.rules`.
+// =====================================================================
+
 rules_version = '2';
 
 // IMPORTANTE: si ya tenés un firestore.rules con otras colecciones,
@@ -80,6 +98,17 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ============================================================
+    // SOPORTE (Tarea 43, tarea 2 · doc 51 §4)
+    // Solo la cuenta del dashboard. Reemplaza a `request.auth != null`,
+    // que con el login anónimo de la app dejaría pasar a cualquier teléfono.
+    // Sin get(): no cuesta lecturas (doc 49 punto 3.6).
+    // ============================================================
+    function esSoporte() {
+      return request.auth != null
+        && request.auth.uid == '5YbBaWvqqDUg9BRpvpvhS5SORfk1';
+    }
 
     // Un evento válido tiene siempre la misma forma:
     // { tipo, nombre, plataforma, createdAt, plantillaId?, extra? }
@@ -339,9 +368,9 @@ service cloud.firestore {
     // Plantillas: descargas de PDF y agregadas a la colección
     match /dashboard_events/{id} {
       allow create: if eventoValido(['plantilla_descargada', 'plantilla_biblioteca']);
-      allow read: if request.auth != null;
+      allow read: if esSoporte();
       allow update: if false;
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
     }
 
     // Onboarding (experiencia mejorada)
@@ -356,9 +385,9 @@ service cloud.firestore {
         'onboarding_desactivado',
         'onboarding_admin_uso'
       ]);
-      allow read: if request.auth != null;
+      allow read: if esSoporte();
       allow update: if false;
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
     }
 
     // Perfiles — DEPRECADO.
@@ -371,9 +400,9 @@ service cloud.firestore {
         'perfil_prueba_activado',
         'perfil_real_creado'
       ]);
-      allow read: if request.auth != null;
+      allow read: if esSoporte();
       allow update: if false;
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
     }
 
     // Uso / interacciones — DEPRECADO.
@@ -385,17 +414,17 @@ service cloud.firestore {
         'editor_abierto',
         'desplazamiento_cambiado'
       ]);
-      allow read: if request.auth != null;
+      allow read: if esSoporte();
       allow update: if false;
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
     }
 
     // Likes / dislikes de diseños (los envía la app, los lee y borra el dashboard)
     match /dashboard_design_feedback/{id} {
       allow create: if disenoFeedbackValido(id);
-      allow read: if request.auth != null;
+      allow read: if esSoporte();
       allow update: if false;
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
     }
 
     // ============================================================
@@ -447,23 +476,50 @@ service cloud.firestore {
     //                        actualizadoEn }
     // ============================================================
 
+    // ============================================================
+    // MODOS (Tarea 43, tarea 3 · Tarea 42 §0) — L4 del lote
+    //   La app LEE (1 vez al arrancar); solo el soporte escribe.
+    //   Solo estas claves, con su tipo. chatMensajesDia entre 1 y 10.
+    // ============================================================
+    match /dashboard_config/app {
+      allow get: if true;
+
+      allow create, update: if esSoporte()
+        && request.resource.data.keys().hasOnly([
+             'metricasActivas', 'chatActivo', 'chatMensajesDia',
+             'encuestasActivas', 'tiendaDisponible', 'iaDisponible',
+             'iaRegalo', 'modoEmergencia', 'actualizadoEn'])
+        && request.resource.data.get('metricasActivas', false) is bool
+        && request.resource.data.get('chatActivo', true) is bool
+        && request.resource.data.get('encuestasActivas', true) is bool
+        && request.resource.data.get('tiendaDisponible', false) is bool
+        && request.resource.data.get('iaDisponible', false) is bool
+        && request.resource.data.get('iaRegalo', false) is bool
+        && request.resource.data.get('modoEmergencia', false) is bool
+        && request.resource.data.get('chatMensajesDia', 10) is int
+        && request.resource.data.get('chatMensajesDia', 10) >= 1
+        && request.resource.data.get('chatMensajesDia', 10) <= 10;
+
+      allow delete: if esSoporte();
+    }
+
     match /dashboard_config/diseno_resets {
       allow get: if true;
 
-      allow create, update: if request.auth != null
+      allow create, update: if esSoporte()
         && request.resource.data.keys().hasOnly(['resetTodoEn', 'resets', 'actualizadoEn'])
         && request.resource.data.get('resetTodoEn', 0) is number
         && request.resource.data.get('resets', {}) is map;
 
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
     }
 
     match /dashboard_config/diseno_contadores {
       // Solo el dashboard lee
-      allow get: if request.auth != null;
+      allow get: if esSoporte();
 
       // Dashboard (con sesión): cualquier cambio (reiniciar, recalcular)
-      allow create, update, delete: if request.auth != null;
+      allow create, update, delete: if esSoporte();
 
       // App (sin sesión): solo sumar votos
       // - primer voto: se crea el documento con un solo diseño en 1
@@ -487,10 +543,10 @@ service cloud.firestore {
     // Métricas de uso agregadas.
     match /dashboard_config/uso_contadores {
       // Solo el dashboard lee
-      allow get: if request.auth != null;
+      allow get: if esSoporte();
 
       // Dashboard (con sesión): cualquier cambio (reiniciar desde Historial)
-      allow create, update, delete: if request.auth != null;
+      allow create, update, delete: if esSoporte();
 
       // App (sin sesión): solo sumar, nunca borrar
       allow create: if usoCrearOk();
@@ -501,7 +557,7 @@ service cloud.firestore {
     // solo el dashboard (con sesión) escribe.
     match /dashboard_config/distribucion {
       allow get: if true;
-      allow create, update, delete: if request.auth != null;
+      allow create, update, delete: if esSoporte();
     }
 
     // Control de versiones: la app (sin sesión) lee por id, solo el
@@ -512,7 +568,7 @@ service cloud.firestore {
     match /dashboard_config/versiones {
       allow get: if true;
 
-      allow create, update: if request.auth != null
+      allow create, update: if esSoporte()
         && request.resource.data.keys().hasOnly(['versiones', 'actualizadoEn', 'diasSinConexion'])
         && request.resource.data.get('versiones', []) is list
         && request.resource.data.get('versiones', []).size() <= 200
@@ -521,21 +577,21 @@ service cloud.firestore {
                 && request.resource.data.diasSinConexion >= 7
                 && request.resource.data.diasSinConexion <= 365));
 
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
     }
 
     // Historial de versiones vencidas: solo el dashboard (con sesión) lee y
     // escribe. La app no tiene acceso. Se acepta únicamente `registros`
     // (mapa, máx. 200 entradas) y `actualizadoEn`.
     match /dashboard_config/versiones_historial {
-      allow get: if request.auth != null;
+      allow get: if esSoporte();
 
-      allow create, update: if request.auth != null
+      allow create, update: if esSoporte()
         && request.resource.data.keys().hasOnly(['registros', 'actualizadoEn'])
         && request.resource.data.get('registros', {}) is map
         && request.resource.data.get('registros', {}).size() <= 200;
 
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
     }
 
     // ============================================================
@@ -560,9 +616,9 @@ service cloud.firestore {
     // ============================================================
 
     match /dashboard_mensajes_plantillas/{id} {
-      allow read, delete: if request.auth != null;
+      allow read, delete: if esSoporte();
 
-      allow create, update: if request.auth != null
+      allow create, update: if esSoporte()
         && request.resource.data.keys().hasOnly(
             ['nombre', 'modo', 'rico', 'actualizadoEn', 'creadoEn'])
         && request.resource.data.keys().hasAll(['nombre', 'modo', 'rico'])
@@ -579,9 +635,9 @@ service cloud.firestore {
     // los chats el registro queda con estado "eliminado" hasta que se quita
     // de la lista.
     match /dashboard_mensajes_envios/{id} {
-      allow read, delete: if request.auth != null;
+      allow read, delete: if esSoporte();
 
-      allow create, update: if request.auth != null
+      allow create, update: if esSoporte()
         && request.resource.data.keys().hasOnly(
             ['nombre', 'modo', 'rico', 'chats', 'total', 'enviados',
              'estado', 'enviadoEn', 'creadoEn', 'eliminadoEn'])
@@ -602,10 +658,10 @@ service cloud.firestore {
     // votos; el dashboard (con sesión) puede todo.
     match /dashboard_mensajes_compartidos/{id} {
       allow get: if true;
-      allow list: if request.auth != null;
+      allow list: if esSoporte();
 
       // Dashboard (con sesión): crear, editar, reiniciar contadores, borrar
-      allow create, update, delete: if request.auth != null;
+      allow create, update, delete: if esSoporte();
 
       // App (sin sesión): solo mover votos en `contadores`
       allow update: if cmpVotoOk();
@@ -614,12 +670,12 @@ service cloud.firestore {
     match /dashboard_config/mensajes_modulos {
       allow get: if true;
 
-      allow create, update: if request.auth != null
+      allow create, update: if esSoporte()
         && request.resource.data.keys().hasOnly(['modulos', 'mostrarDemo', 'actualizadoEn'])
         && request.resource.data.get('modulos', {}) is map
         && request.resource.data.get('mostrarDemo', true) is bool;
 
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
     }
 
     // ============================================================
@@ -643,7 +699,8 @@ service cloud.firestore {
 
       function camposApp() {
         return ['creadoEn', 'ultimaVez', 'ultimaVezApp', 'enChat', 'enApp',
-                'plataforma', 'idioma', 'ultimoMensaje', 'ultimoMensajeEn'];
+                'plataforma', 'idioma', 'ultimoMensaje', 'ultimoMensajeEn',
+                'uids'];
       }
 
       function camposSoporte() {
@@ -693,23 +750,45 @@ service cloud.firestore {
           || (d.idioma is map && d.idioma.keys().hasOnly(['es', 'en', 'pt']));
       }
 
+      // `uids` (Tarea 43, tarea 2): sesiones anónimas que usan esta ficha.
+      // Al crear: solo la propia. Al actualizar: queda igual o se agrega
+      // SOLO la propia (arrayUnion), hasta 5. Nadie puede sacar a otro.
+      function uidsAlCrearOk() {
+        let d = request.resource.data;
+        return !('uids' in d)
+          || (request.auth != null && d.uids == [request.auth.uid]);
+      }
+
+      function uidsAlActualizarOk() {
+        let nuevo = request.resource.data.get('uids', []);
+        let viejo = resource.data.get('uids', []);
+        return nuevo == viejo
+          || (request.auth != null
+              && nuevo is list
+              && nuevo.size() <= 5
+              && nuevo.hasAll(viejo)
+              && nuevo.removeAll(viejo) == [request.auth.uid]);
+      }
+
       // La app lee solo SU ficha (por id). Listar todos: solo el dashboard.
       allow get: if true;
-      allow list: if request.auth != null;
+      allow list: if esSoporte();
 
       // La app crea su ficha
       allow create: if request.resource.data.keys().hasOnly(camposApp())
-        && userId.size() >= 10 && userId.size() <= 60;
+        && userId.size() >= 10 && userId.size() <= 60
+        && uidsAlCrearOk();
 
       // La app actualiza su ficha (sin tocar los campos del soporte)
       allow update: if request.resource.data.keys().hasOnly(camposApp().concat(camposSoporte()))
-        && soporteIntacto();
+        && soporteIntacto()
+        && uidsAlActualizarOk();
 
       // Dashboard (con sesión): cualquier campo
-      allow create, update: if request.auth != null;
+      allow create, update: if esSoporte();
 
       // Solo el dashboard puede borrar
-      allow delete: if request.auth != null;
+      allow delete: if esSoporte();
 
       // Mensajes
       match /messages/{mensajeId} {
@@ -731,7 +810,7 @@ service cloud.firestore {
           && getAfter(/databases/$(database)/documents/chats/$(userId)/limites/$(request.resource.data.dia)).data.count <= 10;
 
         // Tuyos (dashboard con sesión): sin límite diario
-        allow create: if request.auth != null
+        allow create: if esSoporte()
           && request.resource.data.keys().hasOnly(
               ['de', 'texto', 'enviadoEn', 'createdAt', 'modo', 'rico', 'refId', 'idioma'])
           && request.resource.data.keys().hasAll(
@@ -749,7 +828,7 @@ service cloud.firestore {
         // traducciones en `idioma`) y se marca
         // con editadoEn. El autor, las fechas originales, `modo`, `rico` y
         // `refId` no se tocan.
-        allow update: if request.auth != null
+        allow update: if esSoporte()
           && resource.data.de == 'soporte'
           && request.resource.data.de == 'soporte'
           && request.resource.data.keys().hasOnly(
@@ -767,12 +846,12 @@ service cloud.firestore {
           && request.resource.data.editadoEn is number
           && idiomaOk();
 
-        allow delete: if request.auth != null;
+        allow delete: if esSoporte();
       }
 
       // Contador diario: solo sube de a 1 y hasta 10
       match /limites/{dia} {
-        allow read: if request.auth != null;
+        allow read: if esSoporte();
 
         allow create: if request.resource.data.keys().hasOnly(['count', 'dia'])
           && request.resource.data.count == 1
@@ -783,7 +862,7 @@ service cloud.firestore {
           && request.resource.data.count <= 10
           && request.resource.data.dia == dia;
 
-        allow delete: if request.auth != null;
+        allow delete: if esSoporte();
       }
     }
   }

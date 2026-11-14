@@ -24,6 +24,7 @@ import Chat from "./secciones/Chat";
 import Datos from "./secciones/Datos";
 import Distribucion from "./secciones/Distribucion";
 import MensajesPersonalizados from "./secciones/MensajesPersonalizados";
+import Modos from "./secciones/Modos";
 import Estadisticas from "./secciones/Estadisticas";
 import Onboarding from "./secciones/Onboarding";
 import Uso from "./secciones/Uso";
@@ -59,6 +60,7 @@ const SECCIONES = [
     componente: MensajesPersonalizados,
   },
   { id: "versiones", label: "Versiones", componente: Versiones },
+  { id: "modos", label: "Administrador general", componente: Modos },
   { id: "distribucion", label: "Distribución", componente: Distribucion },
   { id: "valoracion", label: "Valoración", componente: Valoracion },
   { id: "historial", label: "Historial", componente: Datos },
