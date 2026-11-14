@@ -21,16 +21,31 @@ const URL_DESCARGA_APK = "";
 
 const CLAVE_IDIOMA = "landing_idioma";
 
-// Idioma inicial: el elegido antes, si no el del navegador, si no español.
+// Idioma del sistema (igual que la app, 14/11/2026): se recorre la lista de
+// idiomas preferidos del navegador / teléfono y se toma el primero que la
+// landing tiene (es, en, pt). Si ninguno está, español.
+function idiomaDelSistema() {
+  const lista =
+    Array.isArray(navigator.languages) && navigator.languages.length
+      ? navigator.languages
+      : [navigator.language || "es"];
+  for (const locale of lista) {
+    const codigo = String(locale).slice(0, 2).toLowerCase();
+    if (TEXTOS[codigo]) return codigo;
+  }
+  return "es";
+}
+
+// Idioma inicial: el que la persona eligió con el selector; si nunca eligió,
+// el del sistema. El del sistema NO se guarda, así sigue al teléfono.
 function idiomaInicial() {
   try {
     const guardado = localStorage.getItem(CLAVE_IDIOMA);
     if (guardado && TEXTOS[guardado]) return guardado;
   } catch {
-    // Sin almacenamiento (modo privado): se sigue con el navegador.
+    // Sin almacenamiento (modo privado): se sigue con el sistema.
   }
-  const delNavegador = (navigator.language || "es").slice(0, 2).toLowerCase();
-  return TEXTOS[delNavegador] ? delNavegador : "es";
+  return idiomaDelSistema();
 }
 
 /* ------------------------------------------------------------------
@@ -351,17 +366,22 @@ function SelectorIdioma({ idioma, cambiar, etiqueta }) {
 export default function LandingPage() {
   const [idioma, setIdioma] = useState(idiomaInicial);
   const t = TEXTOS[idioma];
+
+  // Solo se guarda lo que se elige con el selector.
+  const elegirIdioma = (codigo) => {
+    setIdioma(codigo);
+    try {
+      localStorage.setItem(CLAVE_IDIOMA, codigo);
+    } catch {
+      // Sin almacenamiento: el idioma vale solo para esta visita.
+    }
+  };
   const cap = t.captura;
 
   // Idioma del documento y título de la pestaña.
   useEffect(() => {
     document.documentElement.lang = idioma;
     document.title = t.meta.titulo;
-    try {
-      localStorage.setItem(CLAVE_IDIOMA, idioma);
-    } catch {
-      // Sin almacenamiento: el idioma vale solo para esta visita.
-    }
   }, [idioma, t]);
 
   return (
@@ -380,7 +400,7 @@ export default function LandingPage() {
           ))}
         </nav>
         <div className="landing-barra-acciones">
-          <SelectorIdioma idioma={idioma} cambiar={setIdioma} etiqueta={t.barra.idiomaAria} />
+          <SelectorIdioma idioma={idioma} cambiar={elegirIdioma} etiqueta={t.barra.idiomaAria} />
           <a href="#descargar" className="landing-barra-boton">{t.barra.descargar}</a>
         </div>
       </header>
